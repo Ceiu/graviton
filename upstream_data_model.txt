@@ -1,0 +1,103 @@
+upstream model
+
+
+- subscription
+    - id
+    - create/update dates
+    - subscriptionNumber
+    - quantity
+    - webCustomerId (CP org_key)
+
+    - customer (CP owner)
+        - id (CP org_key)
+        - name
+        - oracleCustomerNumber (upstream account number; not passed to CP today)
+
+    - subscription_products (collection)
+        - id
+        - sku (CP product ID)
+        - "serviceable" flag (marketing vs engineering product? -- referred to as a "marketing sku" if false, "service sku" if true)
+        - status (active, disabled, terminated, temporary, etc.)
+        - created/updated dates
+        - active start/end dates (may or may not be defined)
+        - children_ids (collection of subscription product ids for children of this product)
+
+
+
+- product tree
+    - products (collection of product)
+        - sku (CP product_id)
+        - name (CP name)
+        - description
+        - status
+        - sales fields (price, country code, supportable, etc.)
+        - start/end date
+        - replacedBySku (???)
+        - roles (collection; CP branding)
+        - engineeringProductOids (not populated during tree fetch from product service)
+
+    - parentMap (collection; currently ignored)
+        - parent (sku; CP product ID)
+        - child (sku; CP product ID)
+        - duration (string duration)
+
+
+- product
+    - sku (CP product_id)
+    - name
+    - description (CP name)
+    - status (
+    - sales fields (price, country code, supportable, etc.)
+    - start/end date
+    - attributes
+        - code (CP attribute key/name)
+        - name
+        - context fields (unknown/unused)
+        - value (CP attribute value)
+        - start date (?? unused)
+    - engineeringProductOids
+
+
+
+- content
+    - oid (CP content_id)
+    - engineeringProductOid
+    - status (CP product->content link enabled flag)
+    - type (CP)
+    - label (CP)
+    - name (CP)
+    - metadata (Unused in CP?)
+    - metadataExpire (CP)
+    - attributes (collection)
+        - code
+        - name
+        - description
+        - context data (??)
+        - value
+        - startDate
+    - constraints (collection) (CP modified products/required products)
+        - oid (CP product_id)
+        - constraintTypeCode (string/enum, i.e. REQUIRES)
+
+
+
+content notes:
+- CP arches, vendor, releaseVer come from upstream content attributes ARCH,
+  VENDOR and INITIAL_RHEL_RELEASE respectively
+
+
+
+product data assembling notes:
+- marketing sku attributes inherit the non-falsy attributes of its children
+  in cases where it does not define the attribute itself, using the attribute
+  of the first child found when multiple children define the attribute
+
+
+
+Things using upstream data, or Shayne's upstream tooling:
+- RHSM API
+- RHSM Web
+- SWatch
+- Candlepin
+- Skubert
+- Authorizer

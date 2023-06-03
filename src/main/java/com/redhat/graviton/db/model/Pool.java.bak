@@ -1,0 +1,175 @@
+package com.redhat.graviton.db.model;
+
+import java.time.Instant;
+import java.util.Map;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.CollectionTable;
+import jakarta.persistence.ElementCollection;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.MapKeyColumn;
+import jakarta.persistence.Table;
+
+
+
+/*
+-- pools
+CREATE TABLE IF NOT EXISTS gv_pools (
+  "id" VARCHAR(64) NOT NULL,
+  "created" TIMESTAMP NOT NULL DEFAULT now(),
+  "updated" TIMESTAMP,
+  "org_id" VARCHAR(64) NOT NULL,
+  "product_id" VARCHAR(64) NOT NULL,
+  "start_date" TIMESTAMP,
+  "end_date" TIMESTAMP,
+  "quantity" INTEGER,
+
+  PRIMARY KEY ("id"),
+  FOREIGN KEY ("org_id") REFERENCES gv_organizations ("id") ON DELETE CASCADE,
+  FOREIGN KEY ("product_id") REFERENCES gv_products ("id")
+);
+CREATE INDEX IF NOT EXISTS gv_pools_idx1 ON gv_pools ("org_id");
+CREATE INDEX IF NOT EXISTS gv_pools_idx2 ON gv_pools ("product_id");
+
+-- pool attributes
+CREATE TABLE IF NOT EXISTS gv_pool_attributes (
+  --may need an ID here for Hibernates sake
+  "pool_id" VARCHAR(64) NOT NULL,
+  "name" VARCHAR(256) NOT NULL,
+  "value" VARCHAR(256),
+
+  PRIMARY KEY ("pool_id", "name"),
+  FOREIGN KEY ("pool_id") REFERENCES gv_pools ("id") ON DELETE CASCADE
+);
+*/
+
+@Entity
+@Table(name = Pool.DB_TABLE)
+public class Pool {
+    public static final String DB_TABLE = "gv_pools";
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "id", nullable = false)
+    private String id;
+
+    @Column(name = "created", nullable = false)
+    private Instant created;
+
+    @Column(name = "updated", nullable = true)
+    private Instant updated;
+
+    @ManyToOne
+    @JoinColumn(name = "org_id", nullable = false)
+    private Organization organization;
+
+    @ManyToOne
+    @JoinColumn(name = "product_id", nullable = false)
+    private Product product;
+
+    @Column(name = "startDate", nullable = true)
+    private Instant startDate;
+
+    @Column(name = "endDate", nullable = true)
+    private Instant endDate;
+
+    @Column(name = "quantity", nullable = false)
+    private int quantity;
+
+    @ElementCollection
+    @CollectionTable(name = "gv_pool_attributes", joinColumns = @JoinColumn(name = "pool_id"))
+    @MapKeyColumn(name = "name")
+    @Column(name = "value")
+    private Map<String, String> attributes;
+
+    public Pool() {
+        // intentionally left empty
+    }
+
+    public String getId() {
+        return this.id;
+    }
+
+    public Pool setId(String id) {
+        this.id = id;
+        return this;
+    }
+
+    public Instant getCreated() {
+        return this.created;
+    }
+
+    public Pool setCreated(Instant created) {
+        this.created = created;
+        return this;
+    }
+
+    public Instant getUpdated() {
+        return this.updated;
+    }
+
+    public Pool setUpdated(Instant updated) {
+        this.updated = updated;
+        return this;
+    }
+
+    public Organization getOrganization() {
+        return this.organization;
+    }
+
+    public Pool setOrganization(Organization organization) {
+        this.organization = organization;
+        return this;
+    }
+
+    public Product getProduct() {
+        return this.product;
+    }
+
+    public Pool setProduct(Product product) {
+        this.product = product;
+        return this;
+    }
+
+    public Instant getStartDate() {
+        return this.startDate;
+    }
+
+    public Pool setStartDate(Instant startDate) {
+        this.startDate = startDate;
+        return this;
+    }
+
+    public Instant getEndDate() {
+        return this.endDate;
+    }
+
+    public Pool setEndDate(Instant endDate) {
+        this.endDate = endDate;
+        return this;
+    }
+
+    public int getQuantity() {
+        return this.quantity;
+    }
+
+    public Pool setQuantity(int quantity) {
+        this.quantity = quantity;
+        return this;
+    }
+
+    public Map<String, String> getAttributes() {
+        return this.attributes;
+    }
+
+    public Pool setAttributes(Map<String, String> attributes) {
+        this.attributes = attributes;
+        return this;
+    }
+
+}
