@@ -3,6 +3,8 @@ package com.redhat.graviton.api.poc.resources;
 import com.redhat.graviton.api.poc.model.*;
 import com.redhat.graviton.api.poc.model.ExtProduct.ExtProductContent;
 import com.redhat.graviton.api.datasource.model.*;
+import com.redhat.graviton.db.curators.*;
+import com.redhat.graviton.db.model.*;
 import com.redhat.graviton.sync.ProductSync;
 import com.redhat.graviton.sync.OrganizationSync;
 
@@ -38,6 +40,9 @@ public class PocResource {
 
     @Inject
     private Provider<OrganizationSync> orgSyncProvider;
+
+    @Inject
+    private ProductCurator productCurator;
 
 
     private List<ExtProduct> loadProducts(String target) {
@@ -273,4 +278,49 @@ public class PocResource {
             .execute();
         LOG.info("DONE!");
     }
+
+
+
+    // fun queries for fun
+
+    @GET
+    @Path("/query/products/owners")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Set<String> queryOrgsUsingProducts(
+        @QueryParam("oid") List<String> prodOids) {
+
+        return this.productCurator.getOrgsUsingProducts(prodOids);
+    }
+
+    @GET
+    @Path("/query/owners/{org_oid}/content")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Collection<Content> getOrgContent(
+        @PathParam("org_oid") String orgOid,
+        @QueryParam("active") Boolean activeOnly) {
+
+        return this.productCurator.getOrgContent(orgOid, activeOnly != null && activeOnly)
+            .values();
+    }
+
+    @GET
+    @Path("/query/owners/{org_oid}/content/count")
+    @Produces(MediaType.APPLICATION_JSON)
+    public int getOrgContentCount(
+        @PathParam("org_oid") String orgOid,
+        @QueryParam("active") Boolean activeOnly) {
+
+        return this.productCurator.getOrgContent(orgOid, activeOnly != null && activeOnly).size();
+    }
+
+    @GET
+    @Path("/query/owners/{org_oid}/content/{content_oid}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public boolean canOrgAccessContent(
+        @PathParam("org_oid") String orgOid,
+        @PathParam("content_oid") String contentOid) {
+
+        return this.productCurator.canOrgAccessContent(orgOid, contentOid);
+    }
+
 }

@@ -1,0 +1,43 @@
+
+-- db size
+select
+  table_name,
+  (xpath('/row/c/text()', query_to_xml(format('select count(*) as c from %I.%I', table_schema, TABLE_NAME), FALSE, TRUE, '')))[1]::text::int AS row_count,
+  pg_size_pretty(pg_relation_size(quote_ident(table_name))),
+  pg_relation_size(quote_ident(table_name))
+from information_schema.tables
+where table_schema = 'public'
+order by pg_relation_size desc;
+
+
+-- content of random product
+
+SELECT prod.oid AS "random_product_oid", child.oid, pgraph.type AS "inheritance_type", pgraph.depth, content.oid AS "accessible_content_oid"
+    FROM gv_products prod
+    JOIN gv_product_graph pgraph ON prod.id = pgraph.product_id
+    JOIN gv_product_contents pclink ON pclink.product_id = pgraph.child_product_id
+    JOIN gv_products child ON child.id = pgraph.child_product_id -- optional, only here for demonstration purposes
+    JOIN gv_contents content ON content.id = pclink.content_id
+    WHERE prod.oid = (SELECT oid FROM gv_products ORDER BY RANDOM() LIMIT 1);
+
+-- content of random org
+
+SELECT org.id AS "org_id", org.oid AS "org_oid", sub.oid AS "sub_oid", prod.oid AS "product_oid", content.oid AS "accessible_content_oid"
+    FROM gv_organizations org
+    JOIN gv_subscriptions sub ON sub.org_id = org.id
+    JOIN gv_products prod ON sub.product_id = prod.id
+    JOIN gv_product_graph pgraph ON sub.product_id = pgraph.product_id
+    JOIN gv_product_contents pclink ON pclink.product_id = pgraph.child_product_id
+    JOIN gv_products child ON child.id = pgraph.child_product_id -- optional, only here for demonstration purposes
+    JOIN gv_contents content ON content.id = pclink.content_id
+    WHERE org.oid = (SELECT oid FROM gv_organizations ORDER BY RANDOM() LIMIT 1);
+
+-- orgs referencing product
+
+SELECT org.oid AS "org_oid", sub.oid AS "sub_oid", prod.oid AS "product_oid"
+    FROM gv_products prod
+    JOIN gv_product_graph pgraph ON pgraph.child_product_id = prod.id
+    JOIN gv_subscriptions sub ON sub.product_id = pgraph.product_id
+    JOIN gv_organizations org ON org.id = sub.org_id
+    WHERE prod.oid = (SELECT oid FROM gv_products ORDER BY RANDOM() LIMIT 1)
+    ORDER BY org.oid;

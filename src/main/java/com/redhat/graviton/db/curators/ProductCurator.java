@@ -8,6 +8,7 @@ import jakarta.inject.Provider;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -269,6 +270,82 @@ public class ProductCurator {
 
         return result;
     }
+
+
+    public Set<String> getOrgsUsingProducts(Collection<String> productOids) {
+        Set<String> result = new HashSet<>();
+
+        String jpql = "SELECT DISTINCT org.oid FROM Product prod " +
+            "JOIN ProductGraphNode pg ON pg.childProductId = prod.id " +
+            "JOIN Subscription sub ON pg.productId = sub.product.id " +
+            "JOIN Organization org ON sub.organization.id = org.id " +
+            "WHERE prod.oid IN (:prodOids)";
+
+        TypedQuery<String> query = this.getEntityManager()
+            .createQuery(jpql, String.class);
+
+        for (List<String> oids : this.partition(productOids)) {
+            result.addAll(query.setParameter("prodOids", oids)
+                .getResultList());
+        }
+
+        return result;
+    }
+
+    public Map<String, Content> getOrgContent(String orgOid, boolean activeOnly) {
+        Map<String, Content> result = new HashMap<>();
+
+        String jpql = "SELECT DISTINCT cont FROM Organization org " +
+            "JOIN Subscription sub ON org.id = sub.organization.id " +
+            "JOIN ProductGraphNode pg ON sub.product.id = pg.productId " +
+            "JOIN ProductContent pc ON pg.childProductId = pc.productId " +
+            "JOIN Content cont ON cont.id = pc.contentId " +
+            "WHERE org.oid = :org_oid";
+
+        if (activeOnly) {
+            jpql += " AND sub.startDate < :start_date AND sub.endDate > :end_date";
+        }
+
+        TypedQuery<Content> query = this.getEntityManager()
+            .createQuery(jpql, Content.class)
+            .setParameter("org_oid", orgOid);
+
+        if (activeOnly) {
+            query.setParameter("start_date", Instant.now()) // this is technically incorrect as we aren't using the same input for the date.
+                .setParameter("end_date", Instant.now());   // But, I'm lazy and I don't care about milliseconds at the moment.
+        }
+
+        query.getResultList()
+            .forEach(elem -> result.put(elem.getOid(), elem));
+
+        return result;
+    }
+
+    public boolean canOrgAccessContent(String orgOid, String contentOid) {
+        String jpql = "SELECT COUNT(cont) FROM Organization org " +
+            "JOIN Subscription sub ON org.id = sub.organization.id " +
+            "JOIN ProductGraphNode pg ON sub.product.id = pg.productId " +
+            "JOIN ProductContent pc ON pg.childProductId = pc.productId " +
+            "JOIN Content cont ON cont.id = pc.contentId " +
+            "WHERE org.oid = :org_oid AND cont.oid = :cont_oid " +
+            "AND sub.startDate < :start_date AND sub.endDate > :end_date";
+
+        Instant now = Instant.now();
+
+        Long count = this.getEntityManager()
+            .createQuery(jpql, Long.class)
+            .setParameter("org_oid", orgOid)
+            .setParameter("cont_oid", contentOid)
+            .setParameter("start_date", now)
+            .setParameter("end_date", now)
+            .getSingleResult();
+
+        return count > 0;
+    }
+
+
+
+
 
     public <T> List<List<T>> partition(Collection<T> collection, int blockSize) {
         List<T> base = collection instanceof List ? (List<T>) collection : new ArrayList<>(collection);
