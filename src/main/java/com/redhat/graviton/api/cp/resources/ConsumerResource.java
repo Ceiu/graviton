@@ -15,6 +15,8 @@ import org.jboss.logging.Logger;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Provider;
+import jakarta.ws.rs.BadRequestException;
+import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Path;
@@ -25,6 +27,7 @@ import jakarta.ws.rs.NotFoundException;
 import jakarta.ws.rs.core.MediaType;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -39,107 +42,108 @@ import java.security.cert.X509Certificate;
 import java.security.spec.PKCS8EncodedKeySpec;
 
 
-// hard-coded consumer identity cert for demo purposes
-// -----BEGIN CERTIFICATE-----
-// MIIGHTCCBAWgAwIBAgIIUVcKGDroW2wwDQYJKoZIhvcNAQELBQAwRDEcMBoGA1UE
-// AwwTQ2FuZGxlcGluIFNlcnZlciBDQTESMBAGA1UECwwJQ2FuZGxlcGluMRAwDgYD
-// VQQKDAdSZWQgSGF0MB4XDTIzMDYwNTAxNDYxNloXDTI4MDYwNTAyNDYxNlowTTEc
-// MBoGA1UECgwTdGVzdF9vd25lci1BMUYxNzNCNjEtMCsGA1UEAwwkOGQ3YWUyZWUt
-// YzJmYy00NDZiLWJiMTAtMTA1Nzg0OTVkYWI2MIICIjANBgkqhkiG9w0BAQEFAAOC
-// Ag8AMIICCgKCAgEA5mxCl78BY0fgjFBkvGunqK4CryFHYfgCc/UOZx1/iDwk/Ugb
-// 69lhj1/jB3YERMp96+gqNQy9fUGtvG0hee6Pzqde1UtsEDY6eh+SlaXPugCqmxVv
-// F7FUJhpWVMwUahjdaYFvXrT0J4d6QXRSAiqVtsn/9hg1Y8QGzlocUPzLC9FL3HId
-// xWdo0nG7nwrLHqOEnwNpLO9Rlt4Nsl54J35pnenN1bzxWXnFMG6ie9bvNh3+b5+v
-// HKPJKFt14nsw8u/scVXP2Ps0qBNgiC06AUfppPqI+k1fbr2ZmGBVac6JlaKDSCac
-// Ns0/j755UUXcyNEkDuYL4XtiY5rvLYcfzj6cQQZwNtPNwqSJVevf5jFEQuv5EKi+
-// vZkp2iv+z6278uWh2rWA9U8XUo7C73NiNnd9eYiEe9n5pnxocHpDBJUBep2hUCPn
-// lbFIWzsjLIV1fODRGdtKqPP3XDGc15rchWSQ7VuV0+GN6OlpBgFGLZf3AANPsZPp
-// 1YazovQpM09gW0NOPO3hKrUg6pGXadPdbvoLzuDYPHS1YLLn8cn8M8zOffD5oOVm
-// FF9hJJdnGTuZzn14P81FjoNMBWQWcrytesgTcHYY9ndmE11kcUllu2T8eJTN5TBe
-// Y3wqIwNG11msVgMPaiB+HgdqJMCwJtEpt12sp+jfY1+vfPJbAdaoVWpI2gsCAwEA
-// AaOCAQgwggEEMA4GA1UdDwEB/wQEAwIEsDATBgNVHSUEDDAKBggrBgEFBQcDAjAJ
-// BgNVHRMEAjAAMBEGCWCGSAGG+EIBAQQEAwIFoDAdBgNVHQ4EFgQUTiomXEwIIMpw
-// bt8O9EXJxMAbv+gwHwYDVR0jBBgwFoAU99YUAh0n4zezc9oauL2rD1X43IIwfwYD
-// VR0RBHgwdqRPME0xHDAaBgNVBAoME3Rlc3Rfb3duZXItQTFGMTczQjYxLTArBgNV
-// BAMMJDhkN2FlMmVlLWMyZmMtNDQ2Yi1iYjEwLTEwNTc4NDk1ZGFiNqQjMCExHzAd
-// BgNVBAMMFnRlc3RfY29uc3VtZXItMzY3MDM1REEwDQYJKoZIhvcNAQELBQADggIB
-// AFMRo72gEr6coUmLowOnmkxSZoFROdMJ4Hy9ip2JcCKK4gBZ4wuGKV9+oUhGL/UZ
-// h1vSzn3XhfJav0auPSn79zVybGuMnzwMr7IqB/SsNv1vLERc96i37dLWFVZCqHG+
-// 0VZP4x+5seQIKktGZhGB/TApeOnAl9P8hikpYSU7c6PbHZ/2PYSyNbeglA5p6u0Z
-// JX62OZaZ3zu1jh8gbx6+2DpK4abES1DPMWtwbKN6k3Y1OdZg6n2STpczmeim2N5i
-// 6CTp+PQ9gL4D5IcNFdVE54XRfzkp8ngB7lLqpHhqBbssBXAPgA6eDBJQ33MSL4I0
-// LOOeCEnWb6jV+MbP95X3JaR8i8tfH/uROiREOpxeDsWaf7dppce4aaJMZZxS9OXH
-// Yc9imX0lAs6E4Ed7nIahbcLnJloyi4SEUZ0oyxyT2GqFaDwSIGEGv2hfbvgfYZRf
-// cxoZvhGZjCYMDy+9Xn+zImkthSWzNErMZRqf8W+QeEy1EVr8q7hLyDftQgNu8B5l
-// 7/plHQE5A6axKxMIjecUtHX8b0SKKneWbICT2jwKfV78r7VsyPSKW/H0UPILzNmR
-// PQAM4gHC0hVj90LkUb/zpVRRLgT+M9ZdHr57jkoxRb96voqYWE1oawaYWCzGDzfC
-// BXvpIDgNHWOb5bJQuDZ8d3zqF6boG0ZRpZHq9flHAn2X
-// -----END CERTIFICATE-----
-
-// hard-coded consumer private key for demo purposes
-// -----BEGIN PRIVATE KEY-----
-// MIIJQwIBADANBgkqhkiG9w0BAQEFAASCCS0wggkpAgEAAoICAQDmbEKXvwFjR+CM
-// UGS8a6eorgKvIUdh+AJz9Q5nHX+IPCT9SBvr2WGPX+MHdgREyn3r6Co1DL19Qa28
-// bSF57o/Op17VS2wQNjp6H5KVpc+6AKqbFW8XsVQmGlZUzBRqGN1pgW9etPQnh3pB
-// dFICKpW2yf/2GDVjxAbOWhxQ/MsL0Uvcch3FZ2jScbufCsseo4SfA2ks71GW3g2y
-// Xngnfmmd6c3VvPFZecUwbqJ71u82Hf5vn68co8koW3XiezDy7+xxVc/Y+zSoE2CI
-// LToBR+mk+oj6TV9uvZmYYFVpzomVooNIJpw2zT+PvnlRRdzI0SQO5gvhe2Jjmu8t
-// hx/OPpxBBnA2083CpIlV69/mMURC6/kQqL69mSnaK/7Prbvy5aHatYD1TxdSjsLv
-// c2I2d315iIR72fmmfGhwekMElQF6naFQI+eVsUhbOyMshXV84NEZ20qo8/dcMZzX
-// mtyFZJDtW5XT4Y3o6WkGAUYtl/cAA0+xk+nVhrOi9CkzT2BbQ0487eEqtSDqkZdp
-// 091u+gvO4Ng8dLVgsufxyfwzzM598Pmg5WYUX2Ekl2cZO5nOfXg/zUWOg0wFZBZy
-// vK16yBNwdhj2d2YTXWRxSWW7ZPx4lM3lMF5jfCojA0bXWaxWAw9qIH4eB2okwLAm
-// 0Sm3Xayn6N9jX6988lsB1qhVakjaCwIDAQABAoICADMtDTc9rVW7A4S2YEE22cRN
-// bXwu9HcuSYEuhpXhR89eqEp2pvjhTVk2Dyq7i+QpYwEvjZw9qaI1oZwNUteNY/Qe
-// WSIfP690E9XGyFwjOPkTJ9EM2CEXedyCkfUAZHJR9m711+HdZ7KV1NHPv10KzziL
-// MaWbJ9RyF57iBZL5KjGEOQiLcdBDkNTYfLasg4NZBt34OHZJ6sGKrNkWQTJoUZXI
-// dTZI4gOg12pT0BOYH4XR8I4jFZXTTJyBf7Oe77atEcL0L5b95+qCbzifbtgU/C/v
-// ktegspbaVlAw6Rd4TzdkIis2pBBJ0pme0Lv7u7cAODV042OfbzE3GnLupWI9pp8g
-// nqf+imf9k8egE/Aj77UsC+hwf5CayWMciZkBRt+LGuDgC1pR2tmNgmWUA0uAUJfN
-// PDHweHq1eYUuRHAKfzD8qBeZvW5kYIsahfPQEYuV+PdJVEXxnPgD2bpG5eniQ/dY
-// 8RNgRCWYhEJWFT5cCSzlsfW70pybz0CdKmkisFMkh6M/vtMvrKHlkVhanP22tTOe
-// axOtRqGW4/YUp5tMUX8+IxzblWpTqsMqk32u/Q17iy8935B8hcQxeosMax9J8mWz
-// JqD/DSQq/kebnCZ5pNR59V72/P0vM0tmXgFkVszRMQ8+I/tzZ5zMnXT+sddKMfr8
-// dksM8fHGKYcfnnKYhZR1AoIBAQD5QeliXzIpRuZIFQhMkKOqxc7sLAfS8aZBvafb
-// mjGnHDcOT4R+fhNMj7DyD0bNdgW+H1wJWviYRXaTrRtmIFjK8TYaLtQGQXOnhWfu
-// 5W2scW5IBkBqNVoEBPHbIqziJQdt6ely1eQ/Mf0xUh3bOP9+8KHy8GDZgXczptF5
-// YD5zzB+cRYAe3k8xem4kFVw3N2iBQOjKxHTYmpS2EXvfbmijVnllsDbiK3lBs6tq
-// T1+NFvJcuQRPCUG2IXJu9tXKm7WTxhr0sFfLN/nBSSVQKqyfPAtoxRzOdXXy5g1b
-// tSOSBzw0BdkRf4RdMmBTCYrzyBc8DhmNsvgTioG02bzbWy8VAoIBAQDsp+umss4B
-// C6n48WOds8CJBND5RwlYeLMBlwTJvF0yM/8ugFMYtLHPjfy16fQ8LrlTw9cxFzSm
-// bPTtVlWLBKIsS+8yaSAMQPZiacx3lY/KAF/qeb0cfq4RPwqX4Jh6TGw2mdaxYprx
-// AjY+mN6VRkGcq+UULXbZm5XF5AiO6TmT/GyiHXvG4o70dCZhw7ksf75qhL5athDf
-// 8m9U+tasEQHUxrDNxPCGyN+t1vOt1pmqvzCzOBphCPeGMg6TqEfF9Qg3jrKSWhQb
-// GteUtXVYXDzFfvrz7gLmgZBgFoCOhE04HGyV8UEuY9aiZgeiqtYeQqOuBHOCETmQ
-// 69y4gd16EyyfAoIBAAquAEnuuj96gjNkc06Ug+61OwBzgoJPSEhYz/Bg0u/ODa3X
-// Sl4BGOKW5YX5kZcMD4Lt5QuhkjU0BLifGiVuDV/kpeTJTNxXwZTT6ngZ7HEPCyKa
-// 4ferAYhajeJNwgqOe5sCArag436xrZ+HXTAfaRMPTGEUW5H2Mh1McH062nIrtM8F
-// S1AHRm1gSYfSQnk7LocbON43PKprNSP3687O9DzLX7gzrKZUJoXiJN4ROI7bBNdk
-// NgMM6nvbQwPuH4rm0Qjb3BvP0nMqmtDlSWv96BeKgxKiH3HZJoyZvsjHIhcHqFSy
-// S3KsfAdiOS5VolZ/pD82e3HO0UJFFPmiuqzLY2ECggEBAK46fjJO5307khqV1KoQ
-// 4Um/Av7S/p1k1xzvivXeuJoyT8dzcDn7JgFRXmCrakU4fPafcvlQRVHVW4i0C+x6
-// L87+5I4veQmsdfhEPeU4dhDYr8TXdZPZ69sEl47zKi63vt9/6ODVYI7Y+wig0RYD
-// EGEA6Hkvc5WHhv+W/3n/WIWLzIqZvDvTJj3wmSVWzChnr8+KBP6RleDaAn8E4TDy
-// oG9/DEGhoRcKIitA2kv8d0uO0JLRVhJkYJ8qkTLCLH0gBbmpU+yNZsoBu/9ejJLN
-// 7WvVLXqSmw4LCzjCuEi0PIl327WUVVGK7UTIawymS1ch5pFB86wpdEEudGReL6kl
-// Hq8CggEBAIJMAjJ0kHJyE5uHcVFwlo2GDPx2+/xAx7IAXYXBFV7cExKrdCS4tuib
-// 41iwNJrzev5OS1DBf0VXjFMBRDIQUs10nlJr/CHRDMwcos0gAwIzUMO6V5DL53ej
-// XJDP/r23UoEQM4Y+uihy+5tETtD4earr3MFOsJJW3GmbfDOh97Rxihfk61NVjVsu
-// 7tzLlyZtZ6JjawVTfqazKny1J34J7e0THO2Xfbp4qWQspcdCM4Ets0sBiPwNthip
-// wvletpSmF5KX44Ds2vRi5gkD8Zu98CnyAVipISUdcTH6hcVNXWgBx4i52RRHp1jn
-// 7geC9snQyracsdxJ+g91ahVd6XaWK+M=
-// -----END PRIVATE KEY-----
-
-
-
 
 
 @Path("/candlepin/consumers")
 public class ConsumerResource {
     private static final Logger LOG = Logger.getLogger(ConsumerResource.class);
 
+    // hard-coded consumer identity cert for demo purposes
+    public static final String CONSUMER_IDENTITY_CERT = "-----BEGIN CERTIFICATE-----\n" +
+        "MIIGHTCCBAWgAwIBAgIIUVcKGDroW2wwDQYJKoZIhvcNAQELBQAwRDEcMBoGA1UE\n" +
+        "AwwTQ2FuZGxlcGluIFNlcnZlciBDQTESMBAGA1UECwwJQ2FuZGxlcGluMRAwDgYD\n" +
+        "VQQKDAdSZWQgSGF0MB4XDTIzMDYwNTAxNDYxNloXDTI4MDYwNTAyNDYxNlowTTEc\n" +
+        "MBoGA1UECgwTdGVzdF9vd25lci1BMUYxNzNCNjEtMCsGA1UEAwwkOGQ3YWUyZWUt\n" +
+        "YzJmYy00NDZiLWJiMTAtMTA1Nzg0OTVkYWI2MIICIjANBgkqhkiG9w0BAQEFAAOC\n" +
+        "Ag8AMIICCgKCAgEA5mxCl78BY0fgjFBkvGunqK4CryFHYfgCc/UOZx1/iDwk/Ugb\n" +
+        "69lhj1/jB3YERMp96+gqNQy9fUGtvG0hee6Pzqde1UtsEDY6eh+SlaXPugCqmxVv\n" +
+        "F7FUJhpWVMwUahjdaYFvXrT0J4d6QXRSAiqVtsn/9hg1Y8QGzlocUPzLC9FL3HId\n" +
+        "xWdo0nG7nwrLHqOEnwNpLO9Rlt4Nsl54J35pnenN1bzxWXnFMG6ie9bvNh3+b5+v\n" +
+        "HKPJKFt14nsw8u/scVXP2Ps0qBNgiC06AUfppPqI+k1fbr2ZmGBVac6JlaKDSCac\n" +
+        "Ns0/j755UUXcyNEkDuYL4XtiY5rvLYcfzj6cQQZwNtPNwqSJVevf5jFEQuv5EKi+\n" +
+        "vZkp2iv+z6278uWh2rWA9U8XUo7C73NiNnd9eYiEe9n5pnxocHpDBJUBep2hUCPn\n" +
+        "lbFIWzsjLIV1fODRGdtKqPP3XDGc15rchWSQ7VuV0+GN6OlpBgFGLZf3AANPsZPp\n" +
+        "1YazovQpM09gW0NOPO3hKrUg6pGXadPdbvoLzuDYPHS1YLLn8cn8M8zOffD5oOVm\n" +
+        "FF9hJJdnGTuZzn14P81FjoNMBWQWcrytesgTcHYY9ndmE11kcUllu2T8eJTN5TBe\n" +
+        "Y3wqIwNG11msVgMPaiB+HgdqJMCwJtEpt12sp+jfY1+vfPJbAdaoVWpI2gsCAwEA\n" +
+        "AaOCAQgwggEEMA4GA1UdDwEB/wQEAwIEsDATBgNVHSUEDDAKBggrBgEFBQcDAjAJ\n" +
+        "BgNVHRMEAjAAMBEGCWCGSAGG+EIBAQQEAwIFoDAdBgNVHQ4EFgQUTiomXEwIIMpw\n" +
+        "bt8O9EXJxMAbv+gwHwYDVR0jBBgwFoAU99YUAh0n4zezc9oauL2rD1X43IIwfwYD\n" +
+        "VR0RBHgwdqRPME0xHDAaBgNVBAoME3Rlc3Rfb3duZXItQTFGMTczQjYxLTArBgNV\n" +
+        "BAMMJDhkN2FlMmVlLWMyZmMtNDQ2Yi1iYjEwLTEwNTc4NDk1ZGFiNqQjMCExHzAd\n" +
+        "BgNVBAMMFnRlc3RfY29uc3VtZXItMzY3MDM1REEwDQYJKoZIhvcNAQELBQADggIB\n" +
+        "AFMRo72gEr6coUmLowOnmkxSZoFROdMJ4Hy9ip2JcCKK4gBZ4wuGKV9+oUhGL/UZ\n" +
+        "h1vSzn3XhfJav0auPSn79zVybGuMnzwMr7IqB/SsNv1vLERc96i37dLWFVZCqHG+\n" +
+        "0VZP4x+5seQIKktGZhGB/TApeOnAl9P8hikpYSU7c6PbHZ/2PYSyNbeglA5p6u0Z\n" +
+        "JX62OZaZ3zu1jh8gbx6+2DpK4abES1DPMWtwbKN6k3Y1OdZg6n2STpczmeim2N5i\n" +
+        "6CTp+PQ9gL4D5IcNFdVE54XRfzkp8ngB7lLqpHhqBbssBXAPgA6eDBJQ33MSL4I0\n" +
+        "LOOeCEnWb6jV+MbP95X3JaR8i8tfH/uROiREOpxeDsWaf7dppce4aaJMZZxS9OXH\n" +
+        "Yc9imX0lAs6E4Ed7nIahbcLnJloyi4SEUZ0oyxyT2GqFaDwSIGEGv2hfbvgfYZRf\n" +
+        "cxoZvhGZjCYMDy+9Xn+zImkthSWzNErMZRqf8W+QeEy1EVr8q7hLyDftQgNu8B5l\n" +
+        "7/plHQE5A6axKxMIjecUtHX8b0SKKneWbICT2jwKfV78r7VsyPSKW/H0UPILzNmR\n" +
+        "PQAM4gHC0hVj90LkUb/zpVRRLgT+M9ZdHr57jkoxRb96voqYWE1oawaYWCzGDzfC\n" +
+        "BXvpIDgNHWOb5bJQuDZ8d3zqF6boG0ZRpZHq9flHAn2X\n" +
+        "-----END CERTIFICATE-----\n";
+
+    // hard-coded consumer private key for demo purposes
+    public static final String CONSUMER_PRIVATE_KEY = "-----BEGIN PRIVATE KEY-----\n" +
+        "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\n" +
+        "7geC9snQyracsdxJ+g91ahVd6XaWK+M=\n" +
+        "-----END PRIVATE KEY-----\n";
+
     @Inject
     private ObjectMapper mapper;
+
+    @Inject
+    private ConsumerCurator consumerCurator;
 
     @Inject
     private OrganizationCurator orgCurator;
@@ -149,32 +153,114 @@ public class ConsumerResource {
 
     @POST
     @Produces(MediaType.APPLICATION_JSON)
-    public CPConsumerDTO register() {
-        return new CPConsumerDTO().setValue("consumer " + Math.random());
+    public CPConsumerDTO register(CPConsumerDTO dto,
+        @QueryParam("username") String username,
+        @QueryParam("owner") String orgOid,
+        @QueryParam("activation_keys") String activationKeys,
+        @QueryParam("identity_cert_creation") @DefaultValue("true") Boolean identityCertCreation) {
+
+        if (dto == null) {
+            throw new BadRequestException("no consumer provided??");
+        }
+
+        // If the user didn't specify an org, check the dto
+        if (orgOid == null || orgOid.isEmpty()) {
+            orgOid = dto.getOwner() != null ? dto.getOwner().getKey() : null;
+
+            if (orgOid == null || orgOid.isEmpty()) {
+                throw new BadRequestException("no organization specified");
+            }
+        }
+
+        Organization org = this.orgCurator.getOrgByOid(orgOid);
+        if (org == null) {
+            LOG.errorf("No such organization: %s", orgOid);
+            throw new NotFoundException("no such org: " + orgOid);
+        }
+
+        // convert dto to consumer
+        Consumer consumer = this.convertToConsumer(org, dto, username);
+
+        // persist
+        this.consumerCurator.persist(consumer);
+
+        // convert consumer to dto & return
+        return this.convertToConsumerDTO(consumer);
     }
 
-    // /consumers/{consumer_uuid}/accessible_content:
-    // get:
-    //   description: Retrieves the body of the Content Access Certificate for the Consumer
-    //   tags:
-    //     - consumer
-    //   operationId: getContentAccessBody
-    //   security: [ ]
-    //   x-java-response:
-    //     type: javax.ws.rs.core.Response
-    //     isContainer: false
-    //   parameters:
-    //     - name: consumer_uuid
-    //       in: path
-    //       description: The UUID of the consumer
-    //       required: true
-    //       schema:
-    //         type: string
-    //     - name: If-Modified-Since
-    //       in: header
-    //       description: Modified date. Accepted format EEE, dd MMM yyyy HH:mm:ss z
-    //       schema:
-    //         type: string
+    private Consumer convertToConsumer(Organization org, CPConsumerDTO dto, String username) {
+        CPConsumerTypeDTO ctype = dto.getType();
+        String type = ctype != null ? ctype.getLabel() : null;
+
+        Instant now = Instant.now();
+
+        Consumer consumer = new Consumer()
+            .setOid(UUID.randomUUID().toString())
+            .setName(dto.getName())
+            .setType(type != null ? type : "SYSTEM")
+            .setOrganization(org)
+            .setUsername(username)
+            .setFacts(dto.getFacts());
+
+        return consumer;
+    }
+
+    private CPConsumerDTO convertToConsumerDTO(Consumer consumer) {
+        Instant now = Instant.now();
+        Instant nextyear = now.plus(1, ChronoUnit.YEARS);
+
+        CPConsumerTypeDTO type = new CPConsumerTypeDTO()
+            .setCreated(now)
+            .setUpdated(now)
+            .setId(consumer.getType())
+            .setLabel(consumer.getType())
+            .setManifest(false);
+
+        Organization org = consumer.getOrganization();
+        CPOwnerDTO owner = null;
+        if (org != null) {
+            owner = new CPOwnerDTO()
+                .setId(org.getId())
+                .setKey(org.getOid())
+                .setDisplayName(org.getName())
+                .setContentAccessMode("org_environment");
+        }
+
+        // entirely faked at the moment. pls fix.
+        Long serial = (long) (Math.random() * Integer.MAX_VALUE);
+        CPCertificateSerialDTO certSerial = new CPCertificateSerialDTO()
+            .setCreated(now)
+            .setUpdated(now)
+            .setId(serial)
+            .setSerial(serial) // pointless legacy junk
+            .setExpiration(nextyear)
+            .setRevoked(false);
+
+        CPCertificateDTO identityCert = new CPCertificateDTO()
+            .setId("dummy_identity_cert")
+            .setCreated(now)
+            .setUpdated(now)
+            .setKey(CONSUMER_PRIVATE_KEY)
+            .setCert(CONSUMER_IDENTITY_CERT)
+            .setSerial(certSerial);
+
+        CPConsumerDTO consumerDTO = new CPConsumerDTO()
+            .setId(consumer.getId())
+            .setCreated(consumer.getCreated())
+            .setUpdated(consumer.getUpdated())
+            .setUuid(consumer.getOid())
+            .setName(consumer.getName())
+            .setOwner(owner)
+            .setUsername(consumer.getUsername())
+            .setFacts(consumer.getFacts())
+            .setIdCert(identityCert)
+            .setHref("/candlepin/consumers/" + consumer.getOid())
+            .setActivationKeys(List.of())
+            .setEnvironments(List.of());
+
+        return consumerDTO;
+    }
+
 
 // {
 //   "lastUpdate" : "2023-06-05T02:46:21+0000",
@@ -239,7 +325,6 @@ public class ConsumerResource {
 //     " ]
 //   }
 // }
-
 
     @GET
     @Path("/{consumer_uuid}/accessible_content")

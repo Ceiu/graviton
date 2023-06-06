@@ -15,9 +15,11 @@ import org.jboss.logging.Logger;
 
 import jakarta.inject.Inject;
 import jakarta.inject.Provider;
+import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.POST;
 import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.QueryParam;
 import jakarta.ws.rs.core.MediaType;
@@ -216,7 +218,7 @@ public class PocResource {
         return "convert";
     }
 
-    @GET
+    @POST
     @Path("/sync/products")
     @Produces(MediaType.APPLICATION_JSON)
     public void syncProducts(
@@ -229,19 +231,24 @@ public class PocResource {
         LOG.info("DONE!");
     }
 
-    @GET
-    @Path("/sync/owners")
+    @POST
+    @Path("/sync/orgs")
+    @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
-    public void syncOrgs() {
+    public void syncOrgs(List<String> orgOids) {
 
-        LOG.info("FETCHING ORGANIZATION LIST");
-        File baseDir = new File("/home/crog/devel/subscription_data/subscriptions");
+        LOG.debugf("RECEIVED ORG LIST: %s", orgOids);
 
-        Set<String> orgOids = Stream.of(baseDir.list())
-            .map(filename -> filename.substring(0, filename.length() - 4))
-            .collect(Collectors.toSet());
+        if (orgOids == null || orgOids.isEmpty()) {
+            LOG.info("FETCHING ORGANIZATION LIST");
+            File baseDir = new File("/home/crog/devel/subscription_data/subscriptions");
 
-        LOG.infof("SYNCING %d ORGS", orgOids.size());
+            orgOids = Stream.of(baseDir.list())
+                .map(filename -> filename.substring(0, filename.length() - 4))
+                .collect(Collectors.toList());
+        }
+
+        LOG.infof("SYNCING %d ORGS...", orgOids.size());
 
         int count = 0;
         for (String orgOid : orgOids) {
@@ -260,10 +267,12 @@ public class PocResource {
                 LOG.infof("COMPLETED %d ORG REFRESHES", count);
             }
         }
+
+        LOG.infof("DONE. %d ORGS SYNC'D", count);
     }
 
     @GET
-    @Path("/sync/owners/{org_oid}")
+    @Path("/sync/orgs/{org_oid}")
     @Produces(MediaType.APPLICATION_JSON)
     public void syncOrg(
         @PathParam("org_oid") String orgOid,
@@ -279,12 +288,10 @@ public class PocResource {
         LOG.info("DONE!");
     }
 
-
-
     // fun queries for fun
 
     @GET
-    @Path("/query/products/owners")
+    @Path("/query/products/orgs")
     @Produces(MediaType.APPLICATION_JSON)
     public Set<String> queryOrgsUsingProducts(
         @QueryParam("oid") List<String> prodOids) {
@@ -293,7 +300,7 @@ public class PocResource {
     }
 
     @GET
-    @Path("/query/owners/{org_oid}/content")
+    @Path("/query/orgs/{org_oid}/content")
     @Produces(MediaType.APPLICATION_JSON)
     public Collection<Content> getOrgContent(
         @PathParam("org_oid") String orgOid,
@@ -304,7 +311,7 @@ public class PocResource {
     }
 
     @GET
-    @Path("/query/owners/{org_oid}/content/count")
+    @Path("/query/orgs/{org_oid}/content/count")
     @Produces(MediaType.APPLICATION_JSON)
     public int getOrgContentCount(
         @PathParam("org_oid") String orgOid,
@@ -314,7 +321,7 @@ public class PocResource {
     }
 
     @GET
-    @Path("/query/owners/{org_oid}/content/{content_oid}")
+    @Path("/query/orgs/{org_oid}/content/{content_oid}")
     @Produces(MediaType.APPLICATION_JSON)
     public boolean canOrgAccessContent(
         @PathParam("org_oid") String orgOid,
@@ -323,4 +330,13 @@ public class PocResource {
         return this.productCurator.canOrgAccessContent(orgOid, contentOid);
     }
 
+    @GET
+    @Path("/query/orgs/{org_oid}/products/{product_oid}")
+    @Produces(MediaType.APPLICATION_JSON)
+    public boolean canOrgAccessProduct(
+        @PathParam("org_oid") String orgOid,
+        @PathParam("product_oid") String productOid) {
+
+        return this.productCurator.canOrgAccessProduct(orgOid, productOid);
+    }
 }

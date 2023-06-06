@@ -70,7 +70,7 @@ public class Subscription {
     private Organization organization;
 
     @Column(name = "type", nullable = false)
-    private String type;
+    private String type; // TODO: convert to an enum
 
     @ManyToOne
     @JoinColumn(name = "product_id", nullable = false)

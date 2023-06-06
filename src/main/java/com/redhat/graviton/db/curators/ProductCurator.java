@@ -343,9 +343,39 @@ public class ProductCurator {
         return count > 0;
     }
 
+    public boolean canOrgAccessProduct(String orgOid, String productOid) {
+        String jpql = "SELECT COUNT(prod) FROM Organization org " +
+            "JOIN Subscription sub ON org.id = sub.organization.id " +
+            "JOIN ProductGraphNode pg ON sub.product.id = pg.productId " +
+            "JOIN Product prod ON prod.id = pg.childProductId " +
+            "WHERE org.oid = :org_oid AND prod.oid = :prod_oid " +
+            "AND sub.startDate < :start_date AND sub.endDate > :end_date";
 
+        Instant now = Instant.now();
 
+        Long count = this.getEntityManager()
+            .createQuery(jpql, Long.class)
+            .setParameter("org_oid", orgOid)
+            .setParameter("prod_oid", productOid)
+            .setParameter("start_date", now)
+            .setParameter("end_date", now)
+            .getSingleResult();
 
+        return count > 0;
+    }
+
+    public List<Product> getProductsByOrgOid(String orgOid) {
+        String jpql = "SELECT DISTINCT prod FROM Organization org " +
+            "JOIN Subscription sub ON org.id = sub.organization.id " +
+            "JOIN ProductGraphNode pg ON sub.product.id = pg.productId " +
+            "JOIN Product prod ON prod.id = pg.childProductId " +
+            "WHERE org.oid = :org_oid";
+
+        return this.getEntityManager()
+            .createQuery(jpql, Product.class)
+            .setParameter("org_oid", orgOid)
+            .getResultList();
+    }
 
     public <T> List<List<T>> partition(Collection<T> collection, int blockSize) {
         List<T> base = collection instanceof List ? (List<T>) collection : new ArrayList<>(collection);

@@ -1,3 +1,4 @@
+-- organizations
 CREATE TABLE IF NOT EXISTS gv_organizations (
   "id" VARCHAR(64) NOT NULL,
   "created" TIMESTAMP NOT NULL DEFAULT now(),
@@ -10,6 +11,7 @@ CREATE TABLE IF NOT EXISTS gv_organizations (
   -- FOREIGN KEY ("parent_org_id") REFERENCES gv_organizations ("id")
 );
 CREATE INDEX IF NOT EXISTS gv_organizations_idx1 ON gv_organizations ("oid");
+
 
 
 -- contents
@@ -43,6 +45,8 @@ CREATE TABLE IF NOT EXISTS gv_content_required_products (
   FOREIGN KEY ("content_id") REFERENCES gv_contents ("id") ON DELETE CASCADE
 );
 
+
+
 -- products
 CREATE TABLE IF NOT EXISTS gv_products (
   "id" VARCHAR(64) NOT NULL,
@@ -58,7 +62,6 @@ CREATE INDEX IF NOT EXISTS gv_products_idx1 ON gv_products ("oid");
 
 -- product attributes
 CREATE TABLE IF NOT EXISTS gv_product_attributes (
-  --may need an ID here for Hibernates sake
   "product_id" VARCHAR(64) NOT NULL,
   "name" VARCHAR(256) NOT NULL,
   "value" VARCHAR(256),
@@ -67,6 +70,7 @@ CREATE TABLE IF NOT EXISTS gv_product_attributes (
   FOREIGN KEY ("product_id") REFERENCES gv_products ("id") ON DELETE CASCADE
 );
 CREATE INDEX IF NOT EXISTS gv_product_attrib_idx1 ON gv_product_attributes ("product_id");
+CREATE INDEX IF NOT EXISTS gv_product_attrib_idx2 ON gv_product_attributes ("name");
 
 -- dependent products
 CREATE TABLE IF NOT EXISTS gv_product_dependent_products (
@@ -182,3 +186,35 @@ CREATE INDEX IF NOT EXISTS gv_subs_idx4 ON gv_subscriptions ("type");
 -- );
 -- CREATE INDEX IF NOT EXISTS gv_sub_pool_idx1 ON gv_subscription_pools ("subscription_id");
 -- CREATE INDEX IF NOT EXISTS gv_sub_pool_idx2 ON gv_subscription_pools ("pool_id");
+
+
+
+-- consumers
+CREATE TABLE IF NOT EXISTS gv_consumers (
+  "id" VARCHAR(64) NOT NULL,
+  "created" TIMESTAMP NOT NULL DEFAULT now(),
+  "updated" TIMESTAMP NOT NULL DEFAULT now(),
+  "oid" VARCHAR(64) NOT NULL UNIQUE,
+  "type" VARCHAR(32) NOT NULL,
+  "org_id" VARCHAR(64) NOT NULL,
+  "username" VARCHAR(128),
+  "last_checkin" TIMESTAMP NOT NULL DEFAULT now(),
+  "last_cloud_profile_update" TIMESTAMP NOT NULL DEFAULT now(),
+
+  PRIMARY KEY ("id"),
+  FOREIGN KEY ("org_id") REFERENCES gv_organizations ("id") ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS gv_consumers_idx1 ON gv_consumers ("oid");
+CREATE INDEX IF NOT EXISTS gv_consumers_idx2 ON gv_consumers ("org_id");
+
+-- consumer facts (ugh...)
+CREATE TABLE IF NOT EXISTS gv_consumer_facts (
+  "consumer_id" VARCHAR(64) NOT NULL,
+  "name" VARCHAR(256) NOT NULL,
+  "value" VARCHAR(256),
+
+  PRIMARY KEY ("consumer_id", "name"),
+  FOREIGN KEY ("consumer_id") REFERENCES gv_consumers ("id") ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS gv_consumer_facts_idx1 ON gv_consumer_facts ("consumer_id");
+CREATE INDEX IF NOT EXISTS gv_consumer_facts_idx2 ON gv_consumer_facts ("name");

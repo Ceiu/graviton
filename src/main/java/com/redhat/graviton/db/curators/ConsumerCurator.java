@@ -12,12 +12,12 @@ import java.util.List;
 
 
 @ApplicationScoped
-public class OrganizationCurator {
+public class ConsumerCurator {
 
     @Inject
     private Provider<EntityManager> entityManagerProvider;
 
-    public OrganizationCurator() {
+    public ConsumerCurator() {
         // intentionally left empty
     }
 
@@ -25,7 +25,7 @@ public class OrganizationCurator {
         return this.entityManagerProvider.get();
     }
 
-    public Organization persist(Organization entity) {
+    public Consumer persist(Consumer entity) {
         if (entity == null) {
             throw new IllegalArgumentException("entity is null");
         }
@@ -36,7 +36,7 @@ public class OrganizationCurator {
         return entity;
     }
 
-    public Organization merge(Organization entity) {
+    public Consumer merge(Consumer entity) {
         if (entity == null) {
             throw new IllegalArgumentException("entity is null");
         }
@@ -63,12 +63,6 @@ public class OrganizationCurator {
             return null;
         }
 
-    }
-
-    public List<Organization> listOrgs() {
-        return this.getEntityManager()
-            .createQuery("SELECT org FROM Organization org", Organization.class)
-            .getResultList();
     }
 
 
