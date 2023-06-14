@@ -18,25 +18,42 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 
+
 /*
-  TODO: model
+    -- consumers
+    CREATE TABLE IF NOT EXISTS gv_consumers (
+      "id" VARCHAR(64) NOT NULL,
+      "created" TIMESTAMP NOT NULL DEFAULT now(),
+      "updated" TIMESTAMP NOT NULL DEFAULT now(),
+      "oid" VARCHAR(64) NOT NULL UNIQUE,
+      "type" VARCHAR(32) NOT NULL,
+      "name" VARCHAR(250) NOT NULL,
+      "org_id" VARCHAR(64) NOT NULL,
+      "username" VARCHAR(128),
+      "last_check_in" TIMESTAMP NOT NULL DEFAULT now(),
+      "last_cloud_profile_update" TIMESTAMP NOT NULL DEFAULT now(),
+      "certificate_id" VARCHAR(64),
+      "key_pair_id" VARCHAR(64),
+
+      PRIMARY KEY ("id"),
+      FOREIGN KEY ("org_id") REFERENCES gv_organizations ("id") ON DELETE CASCADE,
+      FOREIGN KEY ("certificate_id") REFERENCES gv_certificates ("id"),
+      FOREIGN KEY ("key_pair_id") REFERENCES gv_key_pairs ("id")
+    );
+    CREATE INDEX IF NOT EXISTS gv_consumers_idx1 ON gv_consumers ("oid");
+    CREATE INDEX IF NOT EXISTS gv_consumers_idx2 ON gv_consumers ("org_id");
 */
 
 @Entity
 @Table(name = Consumer.DB_TABLE)
-public class Consumer {
+public class Consumer extends TimestampedEntity<Consumer> {
+
     public static final String DB_TABLE = "gv_consumers";
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", nullable = false)
     private String id;
-
-    @Column(name = "created", nullable = false)
-    private Instant created;
-
-    @Column(name = "updated", nullable = true)
-    private Instant updated;
 
     @Column(name = "oid", nullable = false)
     private String oid;
@@ -70,6 +87,14 @@ public class Consumer {
     @Column(name = "last_cloud_profile_update", nullable = true)
     private Instant lastCloudProfileUpdate;
 
+    @ManyToOne
+    @JoinColumn(name="key_pair_id", nullable = true)
+    private KeyPairData keyPair;
+
+    @ManyToOne
+    @JoinColumn(name="certificate_id", nullable = true)
+    private Certificate certificate;
+
     // What are these even for?
     // private Set<String> contentTags;
 
@@ -95,46 +120,12 @@ public class Consumer {
 
     }
 
-    @PrePersist
-    protected void onCreate() {
-        Instant now = Instant.now();
-
-        if (this.getCreated() == null) {
-            this.setCreated(now);
-        }
-
-        this.setUpdated(now);
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.setUpdated(Instant.now());
-    }
-
     public String getId() {
         return this.id;
     }
 
     public Consumer setId(String id) {
         this.id = id;
-        return this;
-    }
-
-    public Instant getCreated() {
-        return this.created;
-    }
-
-    public Consumer setCreated(Instant created) {
-        this.created = created;
-        return this;
-    }
-
-    public Instant getUpdated() {
-        return this.updated;
-    }
-
-    public Consumer setUpdated(Instant updated) {
-        this.updated = updated;
         return this;
     }
 
@@ -207,6 +198,24 @@ public class Consumer {
 
     public Consumer setLastCloudProfileUpdate(Instant lastCloudProfileUpdate) {
         this.lastCloudProfileUpdate = lastCloudProfileUpdate;
+        return this;
+    }
+
+    public KeyPairData getKeyPair() {
+        return this.keyPair;
+    }
+
+    public Consumer setKeyPair(KeyPairData keyPair) {
+        this.keyPair = keyPair;
+        return this;
+    }
+
+    public Certificate getCertificate() {
+        return this.certificate;
+    }
+
+    public Consumer setCertificate(Certificate certificate) {
+        this.certificate = certificate;
         return this;
     }
 

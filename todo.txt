@@ -1,0 +1,58 @@
+Graviton Prototype TODO
+
+- determine endpoints needed for subman compatibility
+    - register (create consumer)
+    - status/capabilities
+    - list pools (unsure how this should work in SCA-only)
+    - list content
+    - list (entitlement) certificates
+        - SCA cert generation (accessible_content)
+    - likely more
+
+[-done-] reorganize APIs
+    - candlepin
+        - DTO/POJO prefix: CP
+    - datasource
+        - prefix: Ext
+    - api
+        - prefix: Api
+
+[-done-] add certificate generation logic
+    - is bouncy castle even needed anymore? (a: yes)
+
+- add support for currently planned auto-reg v2 scheme -- try to demo autoregistration working
+
+[-done-] add support for arbitrarily named product links
+
+- decide on a system for authorization/permissions
+
+- sync improvements
+    - remove graph traversal when persisting product links (JPA bulk insert if possible)
+    - optimize graph traversal to start at root/parentless nodes
+    - figure out standard way for nodes to perform ID/OID resolution (SubscriptionNode -> product OID)
+
+- add artemis messaging to quarkus
+    - write simple wrapper around it, like Candlepin Messaging, but less ... bad. Don't focus on API
+      compatibility with Artemis; Use something closer to how Candlepin's event generation works.
+      Perhaps look at the unpersisted mock event queue as a basis/concept.
+    - Try to determine what is causing message processing hiccups in current CP and then avoid doing
+      that in Grav
+
+- determine how to efficiently store consumer data
+    - needed to keep perf up; consumer counts will grow almost indefinitely over time, especially
+      with anon reg
+    - facts are ridiculously heavy
+        - hash-based system stats rows?
+        - document tables? Unlikely that JPA nicely supports it, and it locks us to postgresql (not
+          necessarily a bad thing)
+        - need arches at the top level for on-the-fly content filtering
+        - *DO NOT RETAIN CP'S METHOD FOR CONTENT FILTERING -- IT IS TOO SLOW AND NOT QUERY-FRIENDLY*
+        - takes literally 30 minutes to *COUNT* in production
+
+- add n-tier organization handling
+    - use same closure-table approach? Probably
+    - extremely low priority
+
+- Testing
+    - Not likely to get meaningful tests in a week without foregoing all other work in the interim
+    - Complex operations probably deserve a test for verification (link generation/persistence)

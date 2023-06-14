@@ -1,7 +1,7 @@
 package com.redhat.graviton.sync.graph;
 
 import com.redhat.graviton.db.model.Product;
-import com.redhat.graviton.api.datasource.model.UpstreamProduct;
+import com.redhat.graviton.api.datasource.model.ExtProduct;
 import com.redhat.graviton.sync.NodeUpdates;
 
 import org.jboss.logging.Logger;
@@ -15,7 +15,7 @@ import java.util.Stack;
 
 
 
-public class ProductNode extends GraphNode<ProductNode, Product, UpstreamProduct> {
+public class ProductNode extends GraphNode<ProductNode, Product, ExtProduct> {
     private static final Logger LOG = Logger.getLogger(ProductNode.class);
 
     private Set<GraphElement> parents;
@@ -131,7 +131,7 @@ public class ProductNode extends GraphNode<ProductNode, Product, UpstreamProduct
         LOG.debugf("Processing node: %s", this);
 
         Product local = this.getLocalEntity();
-        UpstreamProduct upstream = this.getExternalEntity();
+        ExtProduct upstream = this.getExternalEntity();
 
         if (local != null) {
             if (upstream != null) {
@@ -159,14 +159,14 @@ public class ProductNode extends GraphNode<ProductNode, Product, UpstreamProduct
         }
     }
 
-    private Product createLocalEntity(UpstreamProduct source) {
+    private Product createLocalEntity(ExtProduct source) {
         Product product = new Product()
             .setOid(source.getId());
 
         return product;
     }
 
-    private NodeUpdates applyChanges(Product local, UpstreamProduct upstream) {
+    private NodeUpdates applyChanges(Product local, ExtProduct upstream) {
         // This almost seems like having both objects in JSON would be far easier than class-level
         // field comparison (even with some reflection jank). Downside would be ensuring the objects
         // have the same field names to begin with...

@@ -96,7 +96,7 @@ public class PersistenceVisitor implements Visitor {
             .setType(type);
 
         LOG.debugf("CREATING PRODUCT GRAPH ENTRY: %s", pgn);
-        this.productCurator.persistGraphNode(pgn);
+        this.productCurator.persist(pgn);
     }
 
     private void removeProductGraphEntry(Product parent, Product child, int depth) {
@@ -234,7 +234,7 @@ public class PersistenceVisitor implements Visitor {
             .setProductId(product.getId())
             .setContentId(content.getId());
 
-        this.productCurator.persistProductContentLink(pclink);
+        this.productCurator.persist(pclink);
     }
 
     private void removeContentLink(ProductNode parent, ContentLink link) {
@@ -245,7 +245,7 @@ public class PersistenceVisitor implements Visitor {
             .setProductId(product.getId())
             .setContentId(content.getId());
 
-        this.productCurator.removeProductContentLink(pclink);
+        this.productCurator.remove(pclink);
     }
 
     private void visitContentLink(ContentLink link) {

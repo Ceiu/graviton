@@ -132,40 +132,32 @@ public class ProductSync {
     }
 
     private void populateExtProductNodes(Map<String, ProductNode> productMap, Map<String, ContentNode> contentMap,
-        Collection<UpstreamProduct> products) {
+        Collection<ExtProduct> products) {
 
-        for (UpstreamProduct product : products) {
+        for (ExtProduct product : products) {
             String oid = product.getId();
 
             ProductNode node = productMap.computeIfAbsent(oid, (key) -> new ProductNode())
                 .setExternalEntity(product);
 
-            List<UpstreamContent> contents = product.getContent();
+            List<? extends ExtContent> contents = product.getContent();
             this.populateExtContentNodes(node, contentMap, contents);
         }
     }
 
-    private void populateExtProductTrees(Map<String, ProductNode> productMap, Collection<UpstreamProductTree> productTrees) {
-        for (UpstreamProductTree productTree : productTrees) {
-            String oid = productTree.getOid();
+    private void populateExtProductChildren(Map<String, ProductNode> productMap, Collection<ExtProductChildren> productTrees) {
+        for (ExtProductChildren productTree : productTrees) {
+            String oid = productTree.getProductId();
 
             ProductNode node = productMap.get(oid);
             if (node == null) {
                 throw new IllegalStateException("product tree received for a product that isn't mapped...? oid: " + oid);
             }
 
-            List<String> derivedProductOids = productTree.getDerivedOids();
-            if (derivedProductOids != null) {
-                for (String dpOid : derivedProductOids) {
-                    this.populateExtProductLink(node, dpOid, "derived", productMap);
-                }
-            }
-
-            List<String> providedProductOids = productTree.getProvidedOids();
-            if (providedProductOids != null) {
-                for (String ppOid : providedProductOids) {
-                    this.populateExtProductLink(node, ppOid, "provided", productMap);
-                }
+            Map<String, Set<String>> childrenProductOids = productTree.getChildrenProductIds();
+            for (Map.Entry<String, Set<String>> entry : childrenProductOids.entrySet()) {
+                entry.getValue()
+                    .forEach(coid -> this.populateExtProductLink(node, coid, entry.getKey(), productMap));
             }
         }
     }
@@ -187,8 +179,8 @@ public class ProductSync {
         plink.setExternalLinkPresence(true);
     }
 
-    private void populateExtContentNodes(ProductNode pnode, Map<String, ContentNode> contentMap, Collection<UpstreamContent> contents) {
-        for (UpstreamContent content : contents) {
+    private void populateExtContentNodes(ProductNode pnode, Map<String, ContentNode> contentMap, Collection<? extends ExtContent> contents) {
+        for (ExtContent content : contents) {
             String oid = content.getId();
 
             ContentNode cnode = contentMap.computeIfAbsent(oid, (key) -> new ContentNode())
@@ -209,27 +201,27 @@ public class ProductSync {
      *
      *
      */
-    private Map<String, UpstreamProductTree> resolveUpstreamProductTrees(Set<String> oids) {
-        Map<String, UpstreamProductTree> trees = new HashMap<>();
+    private Map<String, ExtProductChildren> resolveExtProductChildren(Set<String> oids) {
+        Map<String, ExtProductChildren> childrenMap = new HashMap<>();
 
         do {
-            Map<String, UpstreamProductTree> treeblock = this.productDataSource.getProductTrees(oids);
+            Map<String, ExtProductChildren> cblock = this.productDataSource.getProductChildren(oids);
             Set<String> childrenOids = new HashSet<>();
 
-            for (Map.Entry<String, UpstreamProductTree> entry : treeblock.entrySet()) {
-                UpstreamProductTree tree = entry.getValue();
-                trees.put(entry.getKey(), tree);
+            for (Map.Entry<String, ExtProductChildren> entry : cblock.entrySet()) {
+                ExtProductChildren productChildren = entry.getValue();
+                childrenMap.put(entry.getKey(), productChildren);
 
-                if (tree.getDerivedOids() != null) {
-                    childrenOids.addAll(tree.getDerivedOids());
-                }
-
-                if (tree.getProvidedOids() != null) {
-                    childrenOids.addAll(tree.getProvidedOids());
+                Map<String, Set<String>> children = productChildren.getChildrenProductIds();
+                if (children != null) {
+                    children.values()
+                        .stream()
+                        .flatMap(Collection::stream)
+                        .forEach(childrenOids::add);
                 }
             }
 
-            childrenOids.removeAll(treeblock.keySet());
+            childrenOids.removeAll(cblock.keySet());
 
             if (childrenOids.isEmpty()) {
                 break;
@@ -239,7 +231,7 @@ public class ProductSync {
         }
         while (true);
 
-        return trees;
+        return childrenMap;
     }
 
     @Transactional
@@ -254,15 +246,15 @@ public class ProductSync {
 
         // fetch tree(s)
         LOG.infof("FETCHING PRODUCT TREES FOR FILTER: %s", this.productOids);
-        Map<String, UpstreamProductTree> upstreamProductTrees = !this.productOids.isEmpty() ?
-            this.resolveUpstreamProductTrees(this.productOids) :
-            this.productDataSource.getProductTrees();
+        Map<String, ExtProductChildren> upstreamProductTrees = !this.productOids.isEmpty() ?
+            this.resolveExtProductChildren(this.productOids) :
+            this.productDataSource.getProductChildren();
 
         LOG.debugf("FETCHED %d RELATED PRODUCT TREES: %s", upstreamProductTrees.size(), upstreamProductTrees.keySet());
 
         // fetch upstream product definitions
         LOG.infof("FETCHING UPSTREAM PRODUCTS");
-        Map<String, UpstreamProduct> upstreamProducts = this.productDataSource
+        Map<String, ExtProduct> upstreamProducts = this.productDataSource
             .getProducts(upstreamProductTrees.keySet());
 
         LOG.infof("FETCHED %d UPSTREAM PRODUCT DEFINITIONS", upstreamProducts.size());
@@ -271,7 +263,7 @@ public class ProductSync {
         this.populateExtProductNodes(productMap, contentMap, upstreamProducts.values());
 
         LOG.infof("MAPPING UPSTREAM PRODUCT TREES...");
-        this.populateExtProductTrees(productMap, upstreamProductTrees.values());
+        this.populateExtProductChildren(productMap, upstreamProductTrees.values());
 
         LOG.infof("FETCHING LOCAL PRODUCT DEFINITIONS...");
         LOG.infof("FETCHING RELATED OIDS OF UPSTREAM PRODUCT TREES...");

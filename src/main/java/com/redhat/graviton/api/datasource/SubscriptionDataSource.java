@@ -1,6 +1,6 @@
 package com.redhat.graviton.api.datasource;
 
-import com.redhat.graviton.api.datasource.model.*;
+import com.redhat.graviton.api.datasource.model.ExtSubscription;
 
 import java.util.Collection;
 import java.util.List;
@@ -10,10 +10,12 @@ import java.util.List;
 
 public interface SubscriptionDataSource {
 
-    public List<UpstreamSubscription> getSubscriptions(String orgId);
+    public List<ExtSubscription> getSubscriptions(String orgId);
 
-    public List<UpstreamSubscription> getSubscriptionsByOids(String orgId, Collection<String> subOids);
+    public List<ExtSubscription> getSubscriptionsByIds(String orgId, Collection<String> subscriptionIds);
 
-    // public UpstreamSubscription getSubscription(String subscriptionId); // no. not viable with the test data we have to work with
+    public List<ExtSubscription> getSubscriptionsByIds(String orgId, String... subscriptionIds);
+
+    // public ExtSubscription getSubscriptionById(String subscriptionId);
 
 }

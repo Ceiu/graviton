@@ -1,0 +1,8 @@
+{
+    "name": "test-consumer-1",
+    "facts": {
+        "test_fact-1": "fact_val-1",
+        "test_fact-2": "fact_val-2",
+        "test_fact-3": "fact_val-3"
+    }
+}

@@ -2,58 +2,21 @@ package com.redhat.graviton.db.curators;
 
 import com.redhat.graviton.db.model.*;
 
-import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.inject.Provider;
+import jakarta.inject.Singleton;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.NoResultException;
 
 import java.util.List;
 
 
-@ApplicationScoped
-public class SubscriptionCurator {
+@Singleton
+public class SubscriptionCurator extends AbstractCurator {
 
     @Inject
-    private Provider<EntityManager> entityManagerProvider;
-
-    public SubscriptionCurator() {
-        // intentionally left empty
-    }
-
-    public EntityManager getEntityManager() {
-        return this.entityManagerProvider.get();
-    }
-
-    public Subscription persist(Subscription entity) {
-        if (entity == null) {
-            throw new IllegalArgumentException("entity is null");
-        }
-
-        this.getEntityManager()
-            .persist(entity);
-
-        return entity;
-    }
-
-    public Subscription merge(Subscription entity) {
-        if (entity == null) {
-            throw new IllegalArgumentException("entity is null");
-        }
-
-        return this.getEntityManager()
-            .merge(entity);
-    }
-
-    public Organization persist(Organization entity) {
-        if (entity == null) {
-            throw new IllegalArgumentException("entity is null");
-        }
-
-        this.getEntityManager()
-            .persist(entity);
-
-        return entity;
+    public SubscriptionCurator(Provider<EntityManager> entityManagerProvider) {
+        super(entityManagerProvider);
     }
 
     public Organization getOrganizationByOid(String orgOid) {

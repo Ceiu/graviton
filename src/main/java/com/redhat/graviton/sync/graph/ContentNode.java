@@ -1,7 +1,7 @@
 package com.redhat.graviton.sync.graph;
 
 import com.redhat.graviton.db.model.Content;
-import com.redhat.graviton.api.datasource.model.UpstreamContent;
+import com.redhat.graviton.api.datasource.model.ExtContent;
 import com.redhat.graviton.sync.NodeUpdates;
 
 import org.jboss.logging.Logger;
@@ -13,7 +13,7 @@ import java.util.Stack;
 
 
 
-public class ContentNode extends GraphNode<ContentNode, Content, UpstreamContent> {
+public class ContentNode extends GraphNode<ContentNode, Content, ExtContent> {
     private static final Logger LOG = Logger.getLogger(ContentNode.class);
 
     private Set<GraphElement> parents;
@@ -56,7 +56,7 @@ public class ContentNode extends GraphNode<ContentNode, Content, UpstreamContent
         LOG.debugf("Processing node: %s", this);
 
         Content local = this.getLocalEntity();
-        UpstreamContent upstream = this.getExternalEntity();
+        ExtContent upstream = this.getExternalEntity();
 
         if (local != null) {
             if (upstream != null) {
@@ -86,14 +86,14 @@ public class ContentNode extends GraphNode<ContentNode, Content, UpstreamContent
     }
 
 
-    private Content createLocalEntity(UpstreamContent source) {
+    private Content createLocalEntity(ExtContent source) {
         Content content = new Content()
             .setOid(source.getId());
 
         return content;
     }
 
-    private NodeUpdates applyChanges(Content local, UpstreamContent upstream) {
+    private NodeUpdates applyChanges(Content local, ExtContent upstream) {
         // This almost seems like having both objects in JSON would be far easier than class-level
         // field comparison (even with some reflection jank). Downside would be ensuring the objects
         // have the same field names to begin with...
@@ -112,78 +112,82 @@ public class ContentNode extends GraphNode<ContentNode, Content, UpstreamContent
             // upstream.getId()
 
         String type = upstream.getType();
-        if (type != null && !type.equals(local.getType())) {
+        if (!this.isFieldEqual(type, local.getType())) {
             updates.addField("type");
             local.setType(type);
         }
 
         String label = upstream.getLabel();
-        if (label != null && !label.equals(local.getLabel())) {
+        if (!this.isFieldEqual(label, local.getLabel())) {
             updates.addField("label");
             local.setLabel(label);
         }
 
         String name = upstream.getName();
-        if (name != null && !name.equals(local.getName())) {
+        if (!this.isFieldEqual(name, local.getName())) {
             updates.addField("name");
             local.setName(name);
         }
 
         String vendor = upstream.getVendor();
-        if (vendor != null && !vendor.equals(local.getVendor())) {
+        if (!this.isFieldEqual(vendor, local.getVendor())) {
             updates.addField("vendor");
             local.setVendor(vendor);
         }
 
         String contentUrl = upstream.getContentUrl();
-        if (contentUrl != null && !contentUrl.equals(local.getContentUrl())) {
+        if (!this.isFieldEqual(contentUrl, local.getContentUrl())) {
             updates.addField("contentUrl");
             local.setContentUrl(contentUrl);
         }
 
         String gpgUrl = upstream.getGpgUrl();
-        if (gpgUrl != null && !gpgUrl.equals(local.getGpgUrl())) {
+        if (!this.isFieldEqual(gpgUrl, local.getGpgUrl())) {
             updates.addField("gpgUrl");
             local.setGpgUrl(gpgUrl);
         }
 
         String requiredTags = upstream.getRequiredTags();
-        if (requiredTags != null && !requiredTags.equals(local.getRequiredTags())) {
+        if (!this.isFieldEqual(requiredTags, local.getRequiredTags())) {
             updates.addField("requiredTags");
             local.setRequiredTags(requiredTags);
         }
 
         String arches = upstream.getArches();
-        if (arches != null && !arches.equals(local.getArches())) {
+        if (!this.isFieldEqual(arches, local.getArches())) {
             updates.addField("arches");
             local.setArches(arches);
         }
 
         String releaseVersion = upstream.getReleaseVer();
-        if (releaseVersion != null && !releaseVersion.equals(local.getReleaseVersion())) {
+        if (!this.isFieldEqual(releaseVersion, local.getReleaseVersion())) {
             updates.addField("releaseVersion");
             local.setReleaseVersion(releaseVersion);
         }
 
         Integer metadataExpiration = upstream.getMetadataExpiration();
-        if (metadataExpiration != null && !metadataExpiration.equals(local.getMetadataExpiration())) {
+        if (!this.isFieldEqual(metadataExpiration, local.getMetadataExpiration())) {
             updates.addField("metadataExpiration");
             local.setMetadataExpiration(metadataExpiration);
         }
 
         Set<String> requiredProductIds = upstream.getRequiredProductIds();
-        if (requiredProductIds != null && !requiredProductIds.equals(local.getRequiredProductOids())) {
+        if (!this.isFieldEqual(requiredProductIds, local.getRequiredProductOids())) {
             updates.addField("requiredProductIds");
             local.setRequiredProductOids(requiredProductIds);
         }
 
-        Boolean enabled = upstream.getEnabled();
-        if (enabled != null && !enabled.equals(local.getEnabled())) {
+        Boolean enabled = upstream.isEnabled();
+        if (!this.isFieldEqual(enabled, local.isEnabled())) {
             updates.addField("enabled");
             local.setEnabled(enabled);
         }
 
         return updates;
+    }
+
+    private boolean isFieldEqual(Object upstream, Object local) {
+        return upstream != null ? upstream.equals(local) : local == null;
     }
 
     public String toString() {

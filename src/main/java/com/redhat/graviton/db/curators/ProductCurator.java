@@ -2,9 +2,9 @@ package com.redhat.graviton.db.curators;
 
 import com.redhat.graviton.db.model.*;
 
-import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.inject.Provider;
+import jakarta.inject.Singleton;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.TypedQuery;
 
@@ -18,51 +18,12 @@ import java.util.Map;
 import java.util.Set;
 
 
-@ApplicationScoped
-public class ProductCurator {
+@Singleton
+public class ProductCurator extends AbstractCurator {
 
     @Inject
-    private Provider<EntityManager> entityManagerProvider;
-
-    public ProductCurator() {
-        // intentionally left empty
-    }
-
-    public EntityManager getEntityManager() {
-        return this.entityManagerProvider.get();
-    }
-
-
-
-    public Product persist(Product entity) {
-        if (entity == null) {
-            throw new IllegalArgumentException("entity is null");
-        }
-
-        this.getEntityManager()
-            .persist(entity);
-
-        return entity;
-    }
-
-    public Product merge(Product entity) {
-        if (entity == null) {
-            throw new IllegalArgumentException("entity is null");
-        }
-
-        return this.getEntityManager()
-            .merge(entity);
-    }
-
-    public ProductGraphNode persistGraphNode(ProductGraphNode entity) {
-        if (entity == null) {
-            throw new IllegalArgumentException("entity is null");
-        }
-
-        this.getEntityManager()
-            .persist(entity);
-
-        return entity;
+    public ProductCurator(Provider<EntityManager> entityManagerProvider) {
+        super(entityManagerProvider);
     }
 
     public ProductGraphNode removeGraphNode(ProductGraphNode entity) {
@@ -79,28 +40,6 @@ public class ProductCurator {
             .setParameter("childId", entity.getChildProductId())
             .setParameter("depth", entity.getDepth())
             .executeUpdate();
-
-        return entity;
-    }
-
-    public ProductContent persistProductContentLink(ProductContent entity) {
-        if (entity == null) {
-            throw new IllegalArgumentException("entity is null");
-        }
-
-        this.getEntityManager()
-            .persist(entity);
-
-        return entity;
-    }
-
-    public ProductContent removeProductContentLink(ProductContent entity) {
-        if (entity == null) {
-            throw new IllegalArgumentException("entity is null");
-        }
-
-        this.getEntityManager()
-            .remove(entity);
 
         return entity;
     }
@@ -377,25 +316,5 @@ public class ProductCurator {
             .getResultList();
     }
 
-    public <T> List<List<T>> partition(Collection<T> collection, int blockSize) {
-        List<T> base = collection instanceof List ? (List<T>) collection : new ArrayList<>(collection);
-        List<List<T>> chunks = new ArrayList<>();
-
-        for (int offset = 0; offset <= base.size(); offset += blockSize) {
-            int idx = offset + blockSize;
-            if (idx > base.size()) {
-                idx = base.size();
-            }
-
-            chunks.add(base.subList(offset, idx));
-        }
-
-        return chunks;
-    }
-
-    public <T> List<List<T>> partition(Collection<T> collection) {
-        int blockSize = 32000; // FIXME: hard coded because I'm too lazy to do this right at the moment
-        return this.partition(collection, blockSize);
-    }
 
 }

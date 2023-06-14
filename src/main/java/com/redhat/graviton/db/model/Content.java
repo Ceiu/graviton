@@ -48,19 +48,13 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = Content.DB_TABLE)
-public class Content {
+public class Content extends TimestampedEntity<Content> {
     public static final String DB_TABLE = "gv_contents";
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", nullable = false)
     private String id;
-
-    @Column(name = "created", nullable = false)
-    private Instant created;
-
-    @Column(name = "updated", nullable = true)
-    private Instant updated;
 
     @Column(name = "oid", nullable = false)
     private String oid;
@@ -123,40 +117,6 @@ public class Content {
         return this;
     }
 
-    public Instant getCreated() {
-        return this.created;
-    }
-
-    public Content setCreated(Instant created) {
-        this.created = created;
-        return this;
-    }
-
-    public Instant getUpdated() {
-        return this.updated;
-    }
-
-    public Content setUpdated(Instant updated) {
-        this.updated = updated;
-        return this;
-    }
-
-    @PrePersist
-    protected void onCreate() {
-        Instant now = Instant.now();
-
-        if (this.getCreated() == null) {
-            this.setCreated(now);
-        }
-
-        this.setUpdated(now);
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.setUpdated(Instant.now());
-    }
-
     public String getOid() {
         return this.oid;
     }
@@ -184,7 +144,7 @@ public class Content {
         return this;
     }
 
-    public boolean getEnabled() {
+    public boolean isEnabled() {
         return this.enabled;
     }
 

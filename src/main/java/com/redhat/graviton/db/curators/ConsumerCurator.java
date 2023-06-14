@@ -2,67 +2,39 @@ package com.redhat.graviton.db.curators;
 
 import com.redhat.graviton.db.model.*;
 
-import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.inject.Provider;
+import jakarta.inject.Singleton;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.NoResultException;
 
 import java.util.List;
 
 
-@ApplicationScoped
-public class ConsumerCurator {
+@Singleton
+public class ConsumerCurator extends AbstractCurator {
 
     @Inject
-    private Provider<EntityManager> entityManagerProvider;
-
-    public ConsumerCurator() {
-        // intentionally left empty
+    public ConsumerCurator(Provider<EntityManager> entityManagerProvider) {
+        super(entityManagerProvider);
     }
 
-    public EntityManager getEntityManager() {
-        return this.entityManagerProvider.get();
+    public Consumer getConsumerById(String id) {
+        return this.getEntityManager().find(Consumer.class, id);
     }
 
-    public Consumer persist(Consumer entity) {
-        if (entity == null) {
-            throw new IllegalArgumentException("entity is null");
-        }
-
-        this.getEntityManager()
-            .persist(entity);
-
-        return entity;
-    }
-
-    public Consumer merge(Consumer entity) {
-        if (entity == null) {
-            throw new IllegalArgumentException("entity is null");
-        }
-
-        return this.getEntityManager()
-            .merge(entity);
-    }
-
-    public Organization getOrgById(String id) {
-        return this.getEntityManager().find(Organization.class, id);
-    }
-
-    public Organization getOrgByOid(String oid) {
+    public Consumer getConsumerByOid(String oid) {
         try {
-            String jpql = "SELECT org FROM Organization org WHERE org.oid = :oid";
+            String jpql = "SELECT consumer FROM Consumer consumer WHERE consumer.oid = :oid";
 
             return this.getEntityManager()
-                .createQuery(jpql, Organization.class)
+                .createQuery(jpql, Consumer.class)
                 .setParameter("oid", oid)
                 .getSingleResult();
-
         }
         catch (NoResultException nre) {
             return null;
         }
-
     }
 
 

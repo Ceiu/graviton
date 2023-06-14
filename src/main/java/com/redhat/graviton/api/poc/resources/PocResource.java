@@ -1,8 +1,15 @@
 package com.redhat.graviton.api.poc.resources;
 
-import com.redhat.graviton.api.poc.model.*;
-import com.redhat.graviton.api.poc.model.ExtProduct.ExtProductContent;
-import com.redhat.graviton.api.datasource.model.*;
+import com.redhat.graviton.api.candlepin.model.CPContent;
+import com.redhat.graviton.api.candlepin.model.CPProduct;
+import com.redhat.graviton.api.candlepin.model.CPProduct.CPProductContent;
+import com.redhat.graviton.api.datasource.model.ExtContent;
+import com.redhat.graviton.api.datasource.model.ExtProduct;
+import com.redhat.graviton.api.datasource.model.ExtProductChildren;
+import com.redhat.graviton.impl.datasource.fs.model.FileSystemExtContent;
+import com.redhat.graviton.impl.datasource.fs.model.FileSystemExtProduct;
+import com.redhat.graviton.impl.datasource.fs.model.FileSystemExtProductChildren;
+
 import com.redhat.graviton.db.curators.*;
 import com.redhat.graviton.db.model.*;
 import com.redhat.graviton.sync.ProductSync;
@@ -47,14 +54,14 @@ public class PocResource {
     private ProductCurator productCurator;
 
 
-    private List<ExtProduct> loadProducts(String target) {
+    private List<CPProduct> loadProducts(String target) {
         File dir = new File(target);
         if (!dir.canRead() || !dir.isDirectory()) {
             throw new IllegalArgumentException("target is not readable or not a directory: " + target);
         }
 
-        List<ExtProduct> products = new ArrayList<>();
-        TypeReference<List<ExtProduct>> typeref = new TypeReference<List<ExtProduct>>() {};
+        List<CPProduct> products = new ArrayList<>();
+        TypeReference<List<CPProduct>> typeref = new TypeReference<List<CPProduct>>() {};
 
         File[] jsonFiles = dir.listFiles((loc, name) -> name != null && name.endsWith(".json"));
         if (jsonFiles == null) {
@@ -65,7 +72,7 @@ public class PocResource {
             LOG.debugf("Reading file %s", file);
 
             try {
-                List<ExtProduct> deserialized = this.mapper.readValue(file, typeref);
+                List<CPProduct> deserialized = this.mapper.readValue(file, typeref);
                 products.addAll(deserialized);
             }
             catch (Exception e) {
@@ -76,19 +83,17 @@ public class PocResource {
         return products;
     }
 
-    private UpstreamContent convertToUpstreamContent(ExtProductContent source) {
+    private FileSystemExtContent convertToExtContent(CPProductContent source) {
         if (source == null) {
             return null;
         }
 
-        ExtContent content = source.getContent();
+        CPContent content = source.getContent();
         if (content == null) {
             return null;
         }
 
-        UpstreamContent upstreamContent = new UpstreamContent()
-            .setCreated(content.getCreated())
-            .setUpdated(content.getUpdated())
+        FileSystemExtContent extContent = new FileSystemExtContent()
             .setId(content.getId())
             .setType(content.getType())
             .setLabel(content.getLabel())
@@ -103,17 +108,15 @@ public class PocResource {
             .setRequiredProductIds(content.getRequiredProductIds())
             .setEnabled(source.getEnabled());
 
-        return upstreamContent;
+        return extContent;
     }
 
-    private UpstreamProduct convertToUpstreamProduct(ExtProduct source) {
+    private ExtProduct convertToExtProduct(CPProduct source) {
         if (source == null) {
             return null;
         }
 
-        UpstreamProduct upstreamProduct = new UpstreamProduct()
-            .setCreated(source.getCreated())
-            .setUpdated(source.getUpdated())
+        FileSystemExtProduct extProduct = new FileSystemExtProduct()
             .setId(source.getId())
             .setName(source.getName())
             .setMultiplier(source.getMultiplier())
@@ -121,52 +124,49 @@ public class PocResource {
             .setDependentProductIds(source.getDependentProductIds());
 
         // Convert content? ARGH
-        List<ExtProductContent> productContent = source.getProductContent();
+        List<CPProductContent> productContent = source.getProductContent();
         if (productContent != null) {
-            List<UpstreamContent> upstreamContent = productContent.stream()
-                .map(this::convertToUpstreamContent)
+            List<FileSystemExtContent> extContent = productContent.stream()
+                .map(this::convertToExtContent)
                 .collect(Collectors.toList());
 
-            upstreamProduct.setContent(upstreamContent);
-        }
-        else {
-            upstreamProduct.setContent(null);
+            extProduct.setContent(extContent);
         }
 
-        return upstreamProduct;
+        return extProduct;
     }
 
-    private UpstreamProductTree convertToProductTree(ExtProduct product) {
+    private ExtProductChildren extractProductChildren(CPProduct product) {
 
-        ExtProduct derived = product.getDerivedProduct();
-        List<String> derivedProductOids = derived != null ? List.of(derived.getId()) : null;
+        CPProduct derived = product.getDerivedProduct();
+        List<CPProduct> provided = product.getProvidedProducts();
 
-        List<ExtProduct> provided = product.getProvidedProducts();
-        List<String> providedProductOids = provided == null ? null :
+        List<String> derivedProductIds = derived != null ? List.of(derived.getId()) : null;
+        List<String> providedProductIds = provided == null ? null :
             provided.stream()
-                .map(ExtProduct::getId)
+                .map(CPProduct::getId)
                 .collect(Collectors.toList());
         // ^ this formatting is gross. don't ever merge this into production code
 
-        UpstreamProductTree tree = new UpstreamProductTree()
-            .setOid(product.getId())
-            .setDerivedOids(derivedProductOids)
-            .setProvidedOids(providedProductOids);
+        ExtProductChildren children = new FileSystemExtProductChildren()
+            .setProductId(product.getId())
+            .addChildrenProductIds("derived", derivedProductIds)
+            .addChildrenProductIds("provided", providedProductIds);
 
-        return tree;
+        return children;
     }
 
-    private void mapProducts(Map<String, ExtProduct> map, Collection<ExtProduct> products) {
+    private void mapProducts(Map<String, CPProduct> map, Collection<CPProduct> products) {
         if (products == null) {
             return;
         }
 
-        for (ExtProduct product : products) {
+        for (CPProduct product : products) {
             if (product == null) {
                 continue;
             }
 
-            ExtProduct existing = map.get(product.getId());
+            CPProduct existing = map.get(product.getId());
 
             if (existing != null && !existing.equals(product)) {
                 LOG.warnf("product being redefined: %s", product.getId());
@@ -180,17 +180,17 @@ public class PocResource {
         }
     }
 
-    private void writeProductData(UpstreamProduct upstream, UpstreamProductTree tree) {
+    private void writeProductData(ExtProduct upstream, ExtProductChildren children) {
         File dir = new File("/home/crog/devel/subscription_data/product_data");
 
         LOG.infof("Writing upstream product data for: %s", upstream.getId());
 
         File dataFile = new File(dir, String.format("%s-data.json", upstream.getId()));
-        File treeFile = new File(dir, String.format("%s-tree.json", upstream.getId()));
+        File childrenFile = new File(dir, String.format("%s-children.json", upstream.getId()));
 
         try {
             this.mapper.writeValue(dataFile, upstream);
-            this.mapper.writeValue(treeFile, tree);
+            this.mapper.writeValue(childrenFile, children);
         }
         catch (Exception e) {
             throw new RuntimeException(e);
@@ -201,21 +201,19 @@ public class PocResource {
     @GET
     @Path("/convert")
     @Produces(MediaType.APPLICATION_JSON)
-    public String convert() {
-        List<ExtProduct> products = this.loadProducts("/home/crog/devel/subscription_data/raw");
+    public void convert() {
+        List<CPProduct> products = this.loadProducts("/home/crog/devel/subscription_data/raw");
 
         // Convert the list to a map
-        Map<String, ExtProduct> productMap = new HashMap<>();
+        Map<String, CPProduct> productMap = new HashMap<>();
         this.mapProducts(productMap, products);
 
-        for (ExtProduct product : productMap.values()) {
-            UpstreamProduct upstream = this.convertToUpstreamProduct(product);
-            UpstreamProductTree tree = this.convertToProductTree(product);
+        for (CPProduct product : productMap.values()) {
+            ExtProduct ext = this.convertToExtProduct(product);
+            ExtProductChildren children = this.extractProductChildren(product);
 
-            this.writeProductData(upstream, tree);
+            this.writeProductData(ext, children);
         }
-
-        return "convert";
     }
 
     @POST

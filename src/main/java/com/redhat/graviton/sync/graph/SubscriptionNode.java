@@ -15,7 +15,7 @@ import java.util.Stack;
 
 
 
-public class SubscriptionNode extends GraphNode<SubscriptionNode, Subscription, UpstreamSubscription> {
+public class SubscriptionNode extends GraphNode<SubscriptionNode, Subscription, ExtSubscription> {
     private static final Logger LOG = Logger.getLogger(SubscriptionNode.class);
 
     private final Organization org;
@@ -72,7 +72,7 @@ public class SubscriptionNode extends GraphNode<SubscriptionNode, Subscription, 
         LOG.debugf("Processing node: %s", this);
 
         Subscription local = this.getLocalEntity();
-        UpstreamSubscription upstream = this.getExternalEntity();
+        ExtSubscription upstream = this.getExternalEntity();
 
         if (local != null) {
             if (upstream != null) {
@@ -102,7 +102,7 @@ public class SubscriptionNode extends GraphNode<SubscriptionNode, Subscription, 
     }
 
 
-    private Subscription createLocalEntity(UpstreamSubscription source) {
+    private Subscription createLocalEntity(ExtSubscription source) {
         Subscription content = new Subscription()
             .setOid(source.getId())
             .setOrganization(this.org);
@@ -110,7 +110,7 @@ public class SubscriptionNode extends GraphNode<SubscriptionNode, Subscription, 
         return content;
     }
 
-    private NodeUpdates applyChanges(Subscription local, UpstreamSubscription upstream) {
+    private NodeUpdates applyChanges(Subscription local, ExtSubscription upstream) {
         // This almost seems like having both objects in JSON would be far easier than class-level
         // field comparison (even with some reflection jank). Downside would be ensuring the objects
         // have the same field names to begin with...

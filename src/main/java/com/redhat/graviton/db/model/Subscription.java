@@ -48,19 +48,13 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = Subscription.DB_TABLE)
-public class Subscription {
+public class Subscription extends TimestampedEntity<Subscription> {
     public static final String DB_TABLE = "gv_subscriptions";
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     @Column(name = "id", nullable = false)
     private String id;
-
-    @Column(name = "created", nullable = false)
-    private Instant created;
-
-    @Column(name = "updated", nullable = true)
-    private Instant updated;
 
     @Column(name = "oid", nullable = false)
     private String oid;
@@ -106,40 +100,6 @@ public class Subscription {
     public Subscription setId(String id) {
         this.id = id;
         return this;
-    }
-
-    public Instant getCreated() {
-        return this.created;
-    }
-
-    public Subscription setCreated(Instant created) {
-        this.created = created;
-        return this;
-    }
-
-    public Instant getUpdated() {
-        return this.updated;
-    }
-
-    public Subscription setUpdated(Instant updated) {
-        this.updated = updated;
-        return this;
-    }
-
-    @PrePersist
-    protected void onCreate() {
-        Instant now = Instant.now();
-
-        if (this.getCreated() == null) {
-            this.setCreated(now);
-        }
-
-        this.setUpdated(now);
-    }
-
-    @PreUpdate
-    protected void onUpdate() {
-        this.setUpdated(Instant.now());
     }
 
     public String getOid() {

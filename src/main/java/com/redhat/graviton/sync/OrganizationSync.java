@@ -74,10 +74,10 @@ public class OrganizationSync {
 
 
 
-    private void mapUpstreamSubscriptions(Map<String, SubscriptionNode> subscriptionNodeMap, Organization org,
-        Map<String, Product> productMap, Collection<UpstreamSubscription> subscriptions) {
+    private void mapExtSubscriptions(Map<String, SubscriptionNode> subscriptionNodeMap, Organization org,
+        Map<String, Product> productMap, Collection<ExtSubscription> subscriptions) {
 
-        for (UpstreamSubscription subscription : subscriptions) {
+        for (ExtSubscription subscription : subscriptions) {
             SubscriptionNode snode = subscriptionNodeMap.computeIfAbsent(subscription.getId(), (key) -> new SubscriptionNode(org, productMap))
                 .setExternalEntity(subscription);
         }
@@ -116,15 +116,15 @@ public class OrganizationSync {
         Map<String, SubscriptionNode> subscriptionNodeMap = new HashMap<>();
 
         LOG.debug("FETCHING UPSTREAM SUBSCRIPTION DATA");
-        List<UpstreamSubscription> upstreamSubscriptions = !this.subscriptionOids.isEmpty() ?
-            this.subscriptionDataSource.getSubscriptionsByOids(this.orgOid, this.subscriptionOids) :
+        List<ExtSubscription> upstreamSubscriptions = !this.subscriptionOids.isEmpty() ?
+            this.subscriptionDataSource.getSubscriptionsByIds(this.orgOid, this.subscriptionOids) :
             this.subscriptionDataSource.getSubscriptions(this.orgOid);
 
         LOG.debugf("FETCHED %d UPSTREAM SUBSCRIPTIONS", upstreamSubscriptions.size());
 
         LOG.debug("FETCHING REFERENCED PRODUCTS...");
         Set<String> productOids = upstreamSubscriptions.stream()
-            .map(UpstreamSubscription::getProductId)
+            .map(ExtSubscription::getProductId)
             .collect(Collectors.toSet());
 
         Map<String, Product> productMap = this.productCurator.getProductsByOids(productOids);
@@ -138,7 +138,7 @@ public class OrganizationSync {
         }
 
         LOG.debug("MAPPING UPSTREAM SUBSCRIPTIONS...");
-        this.mapUpstreamSubscriptions(subscriptionNodeMap, org, productMap, upstreamSubscriptions);
+        this.mapExtSubscriptions(subscriptionNodeMap, org, productMap, upstreamSubscriptions);
 
         LOG.debugf("FETCHING LOCAL SUBSCRIPTIONS FOR ORG %s", org.getOid());
         List<Subscription> localSubscriptions = this.subscriptionCurator.getSubscriptionByOrg(org.getId());
