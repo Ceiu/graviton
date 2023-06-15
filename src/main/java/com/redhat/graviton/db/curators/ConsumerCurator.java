@@ -19,6 +19,14 @@ public class ConsumerCurator extends AbstractCurator {
         super(entityManagerProvider);
     }
 
+    public List<Consumer> listConsumers() {
+        String jpql = "SELECT consumer FROM Consumer consumer";
+
+        return this.getEntityManager()
+            .createQuery(jpql, Consumer.class)
+            .getResultList();
+    }
+
     public Consumer getConsumerById(String id) {
         return this.getEntityManager().find(Consumer.class, id);
     }
@@ -36,6 +44,5 @@ public class ConsumerCurator extends AbstractCurator {
             return null;
         }
     }
-
 
 }

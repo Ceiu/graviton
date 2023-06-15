@@ -1,6 +1,6 @@
 Graviton Prototype TODO
 
-- determine endpoints needed for subman compatibility
+[-done-] determine endpoints needed for subman compatibility
     - register (create consumer)
     - status/capabilities
     - list pools (unsure how this should work in SCA-only)

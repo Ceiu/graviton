@@ -11,6 +11,7 @@ import com.redhat.graviton.certs.KeyGenerator;
 import com.redhat.graviton.certs.PKIUtility;
 import com.redhat.graviton.certs.X509CertificateBuilder;
 import com.redhat.graviton.certs.X509StringExtension;
+import com.redhat.graviton.certs.SCACertificateGenerator;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -68,21 +69,40 @@ public class ConsumerResource {
     private ProductCurator productCurator;
 
     @Inject
+    private SCACertificateCurator scaCertCurator;
+
+    @Inject
     private CertificateAuthority certAuthority;
 
     @Inject
     private KeyGenerator keyGenerator;
 
     @Inject
+    private PKIUtility pkiUtil;
+
+    @Inject
     private Provider<X509CertificateBuilder> certBuilderProvider;
 
     @Inject
-    private PKIUtility pkiUtil;
+    private Provider<SCACertificateGenerator> scaCertGeneratorProvider;
+
+
 
     @GET
+    @Path("/")
     @Produces(MediaType.APPLICATION_JSON)
+    public Stream<CPConsumerDTO> listConsumers() {
+        return this.consumerCurator.listConsumers()
+            .stream()
+            .map(this::convertToConsumerDTO);
+    }
+
+    @GET
     @Path("/{consumer_oid}")
-    public CPConsumerDTO getConsumer(@PathParam("consumer_oid") String consumerOid) {
+    @Produces(MediaType.APPLICATION_JSON)
+    public CPConsumerDTO getConsumer(
+        @PathParam("consumer_oid") String consumerOid) {
+
         Consumer consumer = this.consumerCurator.getConsumerByOid(consumerOid);
         if (consumer == null) {
             LOG.errorf("no such consumer: %s", consumerOid);
@@ -92,7 +112,28 @@ public class ConsumerResource {
         return this.convertToConsumerDTO(consumer);
     }
 
+    @GET
+    @Path("/{consumer_oid}/compliance")
+    @Produces(MediaType.APPLICATION_JSON)
+    public CPComplianceStatusDTO getConsumerComplianceStatus(
+        @PathParam("consumer_oid") String consumerOid) {
+
+        return new CPComplianceStatusDTO()
+            .setStatus("disabled")
+            .setCompliant(true)
+            .setDate(Instant.now())
+            .setCompliantUntil(null)
+            .setCompliantProducts(Map.of())
+            .setPartiallyCompliantProducts(Map.of())
+            .setPartialStacks(Map.of())
+            .setNonCompliantProducts(List.of())
+            .setReasons(List.of())
+            .setProductComplianceDateRanges(Map.of());
+    }
+
+
     @POST
+    @Path("/")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     @Transactional
@@ -157,6 +198,10 @@ public class ConsumerResource {
         this.consumerCurator.persist(kpdata);
         this.consumerCurator.persist(certificate);
         this.consumerCurator.persist(consumer);
+
+        LOG.infof("Generating SCA Certificate for consumer...");
+        this.getSCACertificate(org, consumer);
+        LOG.infof("  done");
 
         LOG.infof("Converting consumer back to a CP consumer DTO...");
 
@@ -352,7 +397,7 @@ public class ConsumerResource {
     @GET
     @Path("/{consumer_oid}/accessible_content")
     @Produces(MediaType.APPLICATION_JSON)
-    public CPContentAccessListing getContentAccessBody(
+    public CPContentAccessListing getAccessibleContent(
         @PathParam("consumer_oid") String consumerOid,
         @QueryParam("last_update") Instant lastUpdate,
         @QueryParam("arch") List<String> archFilter) {
@@ -363,323 +408,36 @@ public class ConsumerResource {
             throw new NotFoundException("No such consumer: " + consumerOid);
         }
 
-        // For now, use the consumer UUID as the org ID. They're effectively the same in this context anyway
         Organization org = consumer.getOrganization();
         LOG.infof("Using organization: %s", org);
 
-        Map<String, Content> contentMap = this.productCurator.getOrgContent(org.getOid(), true);
-        this.filterContent(contentMap, archFilter);
-
-        Instant lastUpdated = Instant.now();
-        Long certSerial = (long) (Math.random() * Long.MAX_VALUE);
+        SCAContentCertificate scaCert = this.getSCACertificate(org, consumer);
 
         // This is profoundly silly. We rip apart a valid PEM-formatted cert + payload to turn it
         // into bad JSON!? WHY WHY WHY!?
-        List<String> pieces = List.of(
-            this.getSCACertData(org, consumer, contentMap),
-            this.getSCAEntitlementData(org, consumer, contentMap)
-        );
+        List<String> pieces = List.of(scaCert.getCertificate(), scaCert.getContentData());
 
         CPContentAccessListing output = new CPContentAccessListing()
-            .setContentListing(certSerial, pieces)
-            .setLastUpdate(lastUpdated);
+            .setContentListing(scaCert.getSerialNumber(), pieces)
+            .setLastUpdate(scaCert.getUpdated());
 
         return output;
     }
 
-    // Arch filtering junk
-    private static final Set<String> GLOBAL_ARCHES = Set.of("all", "ALL", "noarch");
-    private static final Set<String> X86_LABELS = Set.of("i386", "i486", "i586", "i686");
+    private SCAContentCertificate getSCACertificate(Organization org, Consumer consumer) {
+        SCACertificateGenerator scaCertGen = this.scaCertGeneratorProvider.get();
 
-    private void filterContent(Map<String, Content> contentMap, Collection<String> archFilter) {
-        if (archFilter == null || archFilter.isEmpty()) {
-            return;
+        String filter = scaCertGen.buildSCAFilterString(org, consumer);
+
+        SCAContentCertificate scaCert = this.scaCertCurator.getSCACertificateByFilter(filter);
+        if (scaCert != null) {
+            return scaCert;
         }
 
-        Iterator<Map.Entry<String, Content>> contentIterator = contentMap.entrySet().iterator();
-        while (contentIterator.hasNext()) {
-            Map.Entry<String, Content> entry = contentIterator.next();
+        scaCert = scaCertGen.generateSCACertificate(org, consumer);
+        this.scaCertCurator.persist(scaCert);
 
-            if (!this.archesMatch(archFilter, entry.getValue())) {
-                contentIterator.remove();
-            }
-        }
-    }
-
-    private Set<String> parseArches(String arches) {
-        Set<String> parsed = new HashSet<>();
-
-        if (arches == null || arches.trim().isEmpty()) {
-            return parsed;
-        }
-
-        for (String arch : arches.trim().split("\\s*,[\\s,]*")) {
-            parsed.add(arch);
-        }
-
-        return parsed;
-    }
-
-    private boolean archesMatch(Collection<String> archFilter, Content content) {
-        Set<String> contentArches = this.parseArches(content.getArches());
-
-        // No arch specified, auto-match?
-        if (contentArches.isEmpty()) {
-            return true;
-        }
-
-        // Check the arch filter for any matches
-        for (String contentArch : contentArches) {
-            if (GLOBAL_ARCHES.contains(contentArch)) {
-                return true;
-            }
-
-            for (String arch : archFilter) {
-                if (arch.equals(contentArch)) {
-                    return true;
-                }
-
-                if (X86_LABELS.contains(arch) && contentArch.equals("x86")) {
-                    return true;
-                }
-            }
-        }
-
-        return false;
-    }
-
-    // SCA cert generation junk
-    private String getSCACertData(Organization org, Consumer consumer, Map<String, Content> contentMap) {
-        KeyPairData kpdata = consumer.getKeyPair();
-        if (kpdata == null) {
-            throw new IllegalStateException("consumer does not yet have a key pair");
-        }
-
-        KeyPair keypair = this.pkiUtil.convertToKeyPair(kpdata);
-
-        Instant validAfter = Instant.now();
-        Instant validUntil = validAfter.plus(1 * 365, ChronoUnit.DAYS);
-
-        String distinguishedName = String.format("CN=%s, O=%s", consumer.getOid(), org.getOid());
-
-        // This is a lot of object juggling just to build a simple string, which we then throw at a strange
-        // huffman encoder...
-        // CertContent certContent = new CertContent()
-        //     .setPath(String.format("/sca/%s", org.getOid()));
-
-        // CertProduct certProduct = new CertProduct()
-        //     .setContent(List.of(certContent));
-
-        // CertEntitlement certEntitlement = new CertEntitlement()
-        //     .setProducts(List.of(certProduct));
-
-        X509Certificate x509cert = this.certBuilderProvider.get()
-            .generateCertificateSerial()
-            .setDistinguishedName(distinguishedName)
-            .setValidAfter(validAfter)
-            .setValidUntil(validUntil)
-            .setKeyPair(keypair)
-
-            // Magic Red Hat extension OID based on CP code
-            .addExtension(new X509StringExtension("1.3.6.1.4.1.2312.9.6", false, "3.4"))
-
-            // General CP entitlement content extension (also present in SCA certs)
-            // Output should be a huffman code for the gzipped string segments (path: /sca/org.oid => sca, org.oid)
-            // This requires a, frankly, strange huffman encoder to implement, and that will take more time
-            // than I'm willing to spend of the time allotted to work on this
-            // .addExtension()
-
-            .build();
-
-        return this.pkiUtil.toPemEncodedString(x509cert);
-    }
-
-    private String getSCAEntitlementData(Organization org, Consumer consumer, Map<String, Content> contentMap) {
-        try {
-            // Convert to cert
-            CertProduct certProduct = this.buildCertProduct(contentMap);
-            CertEntitlement certEntitlement = this.buildCertEntitlement(consumer, certProduct);
-
-            String json = this.mapper.writeValueAsString(certEntitlement);
-            String b64compressed = this.compressAndEncodeJson(json);
-
-            // base64 encode the payload and return it as a string
-            return b64compressed;
-        }
-        catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    private CertProduct buildCertProduct(Map<String, Content> contentMap) {
-
-        // When it comes to filtering content, there are a lot of bits CP does that are
-        // implicitly ignored by way of the product pass into the X509ExtensionUtil being a
-        // minimialist product. This is probably not good (tm) long term, but makes life easier
-        // for me here.
-        List<CertContent> certContent = contentMap.values()
-            .stream()
-            .map(content -> this.convertToCertContent(content))
-            .collect(Collectors.toList());
-
-        CertProduct certProduct = new CertProduct()
-            .setId("simple_content_access")
-            .setName("Simple Content Access")
-            .setContent(certContent)
-
-            // sca does not define version
-            .setVersion("")
-
-            // sca does not define product branding
-            .setBrandName(null)
-            .setBrandType(null)
-
-            // Amusingly, SCA cert payloads don't define arches, even though they're filtered by
-            // arch. We'll leave it null for now but this shouldn't be left empty in the future.
-            // We can do better, and we should.
-            .setArchitectures(List.of());
-
-        return certProduct;
-    }
-
-    private CertContent convertToCertContent(Content content) {
-        CertContent certContent = new CertContent()
-            .setId(content.getOid())
-            .setType(content.getType())
-            .setName(content.getName())
-            .setLabel(content.getLabel())
-            .setVendor(content.getVendor())
-            .setGpgUrl(content.getGpgUrl())
-            .setMetadataExpiration(content.getMetadataExpiration())
-
-            // In CP proper, this actually goes through a bunch of checks, but for SCA certs, the
-            // sku product has no attributes and, thus, no content enablement overrides. Since we
-            // also don't have environments to deal with, this means we just copy it over 1:1.
-            .setEnabled(content.isEnabled());
-
-        // Include required tags as a list if present...
-        String requiredTags = content.getRequiredTags();
-        if (requiredTags != null) {
-            List<String> parsedTags = List.of(requiredTags.trim().split("\\s*,[\\s,]*"));
-            certContent.setRequiredTags(parsedTags);
-        }
-
-        return certContent;
-    }
-
-    private CertEntitlement buildCertEntitlement(Consumer consumer, CertProduct certProduct) {
-        CertEntitlement certEntitlement = new CertEntitlement()
-            .setConsumer(consumer.getId())
-            .setProducts(List.of(certProduct))
-
-            // SCA certs don't specify a quantity
-            .setQuantity(null)
-
-            // When building cert objects for SCA certs, CP uses a largely unpopulated dummy pool.
-            // This means much of it will be nulled or empty population and there's no real value
-            // in attempting to pass something through.
-            .setSubscription(this.buildCertSubscription(certProduct))
-            .setOrder(this.buildCertOrder())
-            .setPool(this.buildCertPool(certProduct));
-
-        return certEntitlement;
-    }
-
-    private CertSubscription buildCertSubscription(CertProduct certProduct) {
-        CertSubscription certSubscription = new CertSubscription()
-            .setSku(certProduct.getId())
-            .setName(certProduct.getName());
-
-        // The following properties never get set for an SCA cert, as the product has no attributes:
-        // WARNING_PERIOD
-        // SOCKETS
-        // RAM
-        // CORES
-        // MANAGEMENT_ENABLED
-        // STACKING_ID
-        // VIRT_ONLY
-        // USAGE
-        // ROLES
-        // ADDONS
-        // SUPPORT_LEVEL
-        // SUPPORT_TYPE
-
-        return certSubscription;
-    }
-
-    private CertOrder buildCertOrder() {
-        CertOrder certOrder = new CertOrder();
-
-        // The following properties are never set for an SCA cert:
-        // number
-        // quantity
-        // account number
-        // contract number
-
-        // The dates *are* set, but both the start *AND* end date are set to now...
-        Instant start = Instant.now();
-        Instant end = start; // start.plus(1, ChronoUnit.YEARS);
-
-        // ...but they're set as strings. AAAAAARGH. Luckily it's an 8601 timestamp string, so this
-        // is low-effort for us.
-        certOrder.setStart(start.toString())
-            .setEnd(end.toString());
-
-        return certOrder;
-    }
-
-    private CertPool buildCertPool(CertProduct certProduct) {
-        // We don't have a pool at all here, so we'll just steal the ID from the product. It's all
-        // arbitrary anyway, so whatever I guess...
-
-        CertPool certPool = new CertPool()
-            .setId(certProduct.getId());
-
-        return certPool;
-    }
-
-    private String compressAndEncodeJson(String json) throws IOException {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        DeflaterOutputStream dos = new DeflaterOutputStream(baos);
-
-        dos.write(json.getBytes(StandardCharsets.UTF_8));
-        dos.finish();
-        dos.close();
-
-        byte[] compressed = baos.toByteArray();
-
-        String b64encoded = Base64.getEncoder().encodeToString(compressed);
-        byte[] signed = this.certAuthority.sign(compressed);
-
-        return new StringBuilder()
-            .append("-----BEGIN ENTITLEMENT DATA-----\n")
-            .append(this.base64EncodeWithLineLimit(compressed, 64))
-            .append("-----END ENTITLEMENT DATA-----\n")
-            .append("-----BEGIN RSA SIGNATURE-----\n")
-            .append(this.base64EncodeWithLineLimit(signed, 64))
-            .append("-----END RSA SIGNATURE-----\n")
-            .toString();
-    }
-
-    private String base64EncodeWithLineLimit(byte[] bytes, int lineLen) {
-
-        String encoded = Base64.getEncoder().encodeToString(bytes);
-        int length = encoded.length();
-
-        StringBuilder builder = new StringBuilder();
-
-        int offset = 0;
-        while (offset + lineLen < length) {
-            builder.append(encoded.substring(offset, offset + lineLen))
-                .append('\n');
-
-            offset += lineLen;
-        }
-
-        builder.append(encoded.substring(offset))
-            .append('\n');
-
-        return builder.toString();
+        return scaCert;
     }
 
 }

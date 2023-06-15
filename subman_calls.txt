@@ -1,0 +1,146 @@
+Subman registration calls (SCA mode)
+
+- GET /candlepin/users/{username}/owners
+    - list orgs visible to user (uses basic auth + path param)
+    - returns a list of CPOwner instances (as JSON)
+
+- GET /candlepin/
+    - list endpoints by name? [1]
+    - probably just copy/paste the output from current CP, but this could be used to control the compatibility
+      layer somewhat
+
+- GET /candlepin/owners/{org_oid}/environments
+    - lists environments
+    - probably unnecessary in hosted, likely disabled entirely?
+
+- POST /candlepin/consumers?owner={org_oid}
+    - registration!
+    - already implemented in graviton
+
+- GET /candlepin/status
+    - fetches status/capabilities of the system
+    - already implemented, kind of -- hardcoded list at present
+    - adjust to reflect hosted's output and capabilities
+
+- GET /candlepin/consumers/{consumer_oid}/certificates/serials
+    - fetches serials for the consumer
+    - probably useful in entitlement mode when registering with an activation key
+    - returns the SCA cert when in SCA mode! Move creation of the cert to registration so we aren't violating
+      REST verbiage here.
+
+- GET /candlepin/consumers/{consumer_oid}/certificates?serials={serial_number} [&serials={serial_number}...]
+    - fetches the specific certificates (serials is a list)
+    - returns a collection of CPCertificate instances
+
+- GET /candlepin/consumers/{consumer_oid}/accessible_content
+    - fetches the SCA cert and the SCA content blob
+    - already implemented today, kind of. Optimize it a bit so we don't generate a bunch of silly certs
+
+- GET /candlepin/consumers/{consumer_oid}/content_overrides
+    - fetches a list of content overrides (what? is this a thing in SCA mode or even at all yet?)
+    - returns an empty list if nothing found
+
+- GET /candlepin/consumers/{consumer_oid}/compliance
+    - fetches compliance status (CPComplianceStatus)
+    - should probably mimic output in SCA mode [2]
+
+
+
+
+
+[1]
+[ {
+  "rel" : "entitlements",
+  "href" : "/entitlements"
+}, {
+  "rel" : "subscriptions",
+  "href" : "/subscriptions"
+}, {
+  "rel" : "environments",
+  "href" : "/environments"
+}, {
+  "rel" : "jobs",
+  "href" : "/jobs"
+}, {
+  "rel" : "roles",
+  "href" : "/roles"
+}, {
+  "rel" : "activation_keys",
+  "href" : "/activation_keys"
+}, {
+  "rel" : "admin",
+  "href" : "/admin"
+}, {
+  "rel" : "pools",
+  "href" : "/pools"
+}, {
+  "rel" : "owners",
+  "href" : "/owners"
+}, {
+  "rel" : "rules",
+  "href" : "/rules"
+}, {
+  "rel" : "cdn",
+  "href" : "/cdn"
+}, {
+  "rel" : "{owner}",
+  "href" : "/hypervisors/{owner}"
+}, {
+  "rel" : "content_overrides",
+  "href" : "/consumers/{consumer_uuid}/content_overrides"
+}, {
+  "rel" : "users",
+  "href" : "/users"
+}, {
+  "rel" : "content",
+  "href" : "/content"
+}, {
+  "rel" : "products",
+  "href" : "/products"
+}, {
+  "rel" : "consumertypes",
+  "href" : "/consumertypes"
+}, {
+  "rel" : "consumers",
+  "href" : "/consumers"
+}, {
+  "rel" : "deleted_consumers",
+  "href" : "/deleted_consumers"
+}, {
+  "rel" : "distributor_versions",
+  "href" : "/distributor_versions"
+}, {
+  "rel" : "crl",
+  "href" : "/crl"
+}, {
+  "rel" : "{id}",
+  "href" : "/serials/{id}"
+}, {
+  "rel" : "status",
+  "href" : "/status"
+} ]
+
+[2] Compliance status output in SCA mode:
+{
+  "status" : "disabled",
+  "compliant" : true,
+  "date" : "2023-06-14T20:37:07+00:00",
+  "compliantUntil" : null,
+  "compliantProducts" : { },
+  "partiallyCompliantProducts" : { },
+  "partialStacks" : { },
+  "nonCompliantProducts" : [ ],
+  "reasons" : [ ],
+  "productComplianceDateRanges" : { }
+}
+
+
+
+
+
+
+
+
+
+
+

@@ -248,3 +248,21 @@ CREATE TABLE IF NOT EXISTS gv_consumer_facts (
 CREATE INDEX IF NOT EXISTS gv_consumer_facts_idx1 ON gv_consumer_facts ("consumer_id");
 CREATE INDEX IF NOT EXISTS gv_consumer_facts_idx2 ON gv_consumer_facts ("name");
 
+
+-- sca cert junk
+CREATE TABLE IF NOT EXISTS gv_sca_content_certs (
+  "id" VARCHAR(64) NOT NULL,
+  "created" TIMESTAMP NOT NULL DEFAULT now(),
+  "updated" TIMESTAMP NOT NULL DEFAULT now(),
+  "filter" VARCHAR(255) NOT NULL UNIQUE,
+  "serial" BIGINT NOT NULL,
+  "valid_after" TIMESTAMP NOT NULL,
+  "valid_until" TIMESTAMP NOT NULL,
+  "private_key" TEXT NOT NULL,
+  "certificate" TEXT NOT NULL,
+  "content_data" TEXT NOT NULL,
+
+  PRIMARY KEY ("id")
+);
+CREATE INDEX IF NOT EXISTS gv_sca_content_certs_idx1 ON gv_sca_content_certs ("serial");
+CREATE INDEX IF NOT EXISTS gv_sca_content_certs_idx2 ON gv_sca_content_certs ("filter");
