@@ -259,13 +259,37 @@ public class ConsumerResource {
 
         Instant now = Instant.now();
 
+        // Sanitize facts, because apparently that's an issue...
+        Map<String, String> facts = dto.getFacts();
+        if (facts != null) {
+            Iterator<Map.Entry<String, String>> entryIterator = facts.entrySet().iterator();
+            while (entryIterator.hasNext()) {
+                Map.Entry<String, String> entry = entryIterator.next();
+
+                String key = entry.getKey();
+                String value = entry.getValue();
+
+                if (key == null || key.length() > 256) {
+                    LOG.warnf("Consumer fact key is null or longer than 256 characters. Discarding fact: %s=%s", key, value);
+                    entryIterator.remove();
+                    continue;
+                }
+
+                if (value != null && value.length() > 256) {
+                    LOG.warnf("Consumer fact value is longer than 256 characters. Discarding fact: %s=%s", key, value);
+                    entryIterator.remove();
+                    continue;
+                }
+            }
+        }
+
         Consumer consumer = new Consumer()
             .setOid(UUID.randomUUID().toString())
             .setName(dto.getName())
             .setType(type != null ? type : "SYSTEM")
             .setOrganization(org)
             .setUsername(username)
-            .setFacts(dto.getFacts())
+            .setFacts(facts)
             .setLastCheckIn(now)
             .setLastCloudProfileUpdate(now);
 
@@ -394,19 +418,24 @@ public class ConsumerResource {
 //   }
 // }
 
-    @GET
-    @Path("/{consumer_oid}/accessible_content")
-    @Produces(MediaType.APPLICATION_JSON)
-    public CPContentAccessListing getAccessibleContent(
-        @PathParam("consumer_oid") String consumerOid,
-        @QueryParam("last_update") Instant lastUpdate,
-        @QueryParam("arch") List<String> archFilter) {
-
+    private Consumer resolveConsumerOid(String consumerOid) {
         Consumer consumer = this.consumerCurator.getConsumerByOid(consumerOid);
         if (consumer == null) {
             LOG.errorf("no such consumer: %s", consumerOid);
             throw new NotFoundException("No such consumer: " + consumerOid);
         }
+
+        return consumer;
+    }
+
+    @GET
+    @Path("/{consumer_oid}/accessible_content")
+    @Produces(MediaType.APPLICATION_JSON)
+    public CPContentAccessListing getAccessibleContent(
+        @PathParam("consumer_oid") String consumerOid,
+        @QueryParam("last_update") Instant lastUpdate) {
+
+        Consumer consumer = this.resolveConsumerOid(consumerOid);
 
         Organization org = consumer.getOrganization();
         LOG.infof("Using organization: %s", org);
@@ -429,15 +458,92 @@ public class ConsumerResource {
 
         String filter = scaCertGen.buildSCAFilterString(org, consumer);
 
+        LOG.infof("Fetching SCA cert matching filter: %s", filter);
+
         SCAContentCertificate scaCert = this.scaCertCurator.getSCACertificateByFilter(filter);
         if (scaCert != null) {
             return scaCert;
         }
 
+        LOG.info("No SCA cert found for filter, generating new one...");
+
         scaCert = scaCertGen.generateSCACertificate(org, consumer);
         this.scaCertCurator.persist(scaCert);
 
         return scaCert;
+    }
+
+    @GET
+    @Path("/{consumer_oid}/certificates")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Stream<CPCertificateDTO> getConsumerCertificates(
+        @PathParam("consumer_oid") String consumerOid,
+        @QueryParam("serials") List<String> serials) {
+
+        Consumer consumer = this.resolveConsumerOid(consumerOid);
+
+        // we don't have a good way of filtering on these atm, so just filter on serial number and
+        // org as best we can
+        SCACertificateGenerator scaCertGen = this.scaCertGeneratorProvider.get();
+        String filter = scaCertGen.buildSCAFilterString(consumer.getOrganization(), consumer);
+
+        SCAContentCertificate cert = this.scaCertCurator.getSCACertificateByFilter(filter);
+        if (cert == null) {
+            return Stream.of();
+        }
+
+        if (serials != null && !serials.isEmpty()) {
+            String strSerial = String.valueOf(cert.getSerialNumber());
+            if (!serials.contains(strSerial)) {
+                return Stream.of();
+            }
+        }
+
+        return Stream.of(cert)
+            .map(this::convertToCPCertificateDTO);
+    }
+
+    private CPCertificateDTO convertToCPCertificateDTO(SCAContentCertificate certificate) {
+        if (certificate == null) {
+            return null;
+        }
+
+        CPCertificateSerialDTO certSerial = new CPCertificateSerialDTO()
+            .setCreated(certificate.getCreated())
+            .setUpdated(certificate.getUpdated())
+            .setId(certificate.getSerialNumber())
+            .setSerial(certificate.getSerialNumber()) // pointless legacy junk
+            .setExpiration(certificate.getValidUntil())
+            .setRevoked(false);
+
+        return new CPCertificateDTO()
+            .setId(certificate.getId())
+            .setCreated(certificate.getCreated())
+            .setUpdated(certificate.getUpdated())
+            .setKey(certificate.getPrivateKey())
+            .setCert(certificate.getCertificate())
+            .setSerial(certSerial);
+    }
+
+    @GET
+    @Path("/{consumer_oid}/certificates/serials")
+    @Produces(MediaType.APPLICATION_JSON)
+    public List<CPCertificateSerialDTO> getConsumerCertificateSerials(
+        @PathParam("consumer_oid") String consumerOid) {
+
+        Consumer consumer = this.resolveConsumerOid(consumerOid);
+
+        SCAContentCertificate scaCert = this.getSCACertificate(consumer.getOrganization(), consumer);
+
+        CPCertificateSerialDTO certSerial = new CPCertificateSerialDTO()
+            .setCreated(scaCert.getCreated())
+            .setUpdated(scaCert.getUpdated())
+            .setId(scaCert.getSerialNumber())
+            .setSerial(scaCert.getSerialNumber()) // pointless legacy junk
+            .setExpiration(scaCert.getValidUntil())
+            .setRevoked(false);
+
+        return List.of(certSerial);
     }
 
 }

@@ -12,6 +12,14 @@ public class CPConsumerTypeDTO {
     private Boolean manifest;
 
 
+    public CPConsumerTypeDTO() {
+        // empty
+    }
+
+    public CPConsumerTypeDTO(String label) {
+        this.label = label;
+    }
+
     public Instant getCreated() {
         return this.created;
     }

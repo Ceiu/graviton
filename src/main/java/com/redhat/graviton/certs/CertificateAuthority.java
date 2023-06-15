@@ -36,8 +36,8 @@ import jakarta.inject.Provider;
 public class CertificateAuthority {
 
     // TODO: change this to a configuration path
-    private static final String CA_CERT_PATH = "/home/crog/devel/graviton/candlepin-ca.crt";
-    private static final String CA_PRIVATE_KEY_PATH = "/home/crog/devel/graviton/candlepin-ca.key";
+    private static final String CA_CERT_PATH = "/home/crog/devel/graviton/graviton-ca.crt";
+    private static final String CA_PRIVATE_KEY_PATH = "/home/crog/devel/graviton/graviton-ca.key";
 
     private static final String SIGNATURE_ALGORITHM = "SHA256WithRSA";
 

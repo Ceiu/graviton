@@ -78,29 +78,29 @@ public class CandlepinResource {
     public List<CPResourceDTO> getRootResources() {
         List<CPResourceDTO> rootResources = new ArrayList<>();
 
-        // rootResources.add(this.buildResource("entitlements", "/entitlements"));
+        rootResources.add(this.buildResource("entitlements", "/entitlements"));
         rootResources.add(this.buildResource("subscriptions", "/subscriptions"));
-        // rootResources.add(this.buildResource("environments", "/environments"));
-        // rootResources.add(this.buildResource("jobs", "/jobs"));
-        // rootResources.add(this.buildResource("roles", "/roles"));
-        // rootResources.add(this.buildResource("activation_keys", "/activation_keys"));
+        rootResources.add(this.buildResource("roles", "/roles"));
+        rootResources.add(this.buildResource("jobs", "/jobs"));
+        rootResources.add(this.buildResource("activation_keys", "/activation_keys"));
         rootResources.add(this.buildResource("admin", "/admin"));
         rootResources.add(this.buildResource("pools", "/pools"));
+        rootResources.add(this.buildResource("rules", "/rules"));
         rootResources.add(this.buildResource("owners", "/owners"));
-        // rootResources.add(this.buildResource("rules", "/rules"));
-        // rootResources.add(this.buildResource("cdn", "/cdn"));
+        rootResources.add(this.buildResource("cdn", "/cdn"));
         rootResources.add(this.buildResource("{owner}", "/hypervisors/{owner}"));
         rootResources.add(this.buildResource("content_overrides", "/consumers/{consumer_uuid}/content_overrides"));
-        rootResources.add(this.buildResource("users", "/users"));
         rootResources.add(this.buildResource("content", "/content"));
+        rootResources.add(this.buildResource("users", "/users"));
         rootResources.add(this.buildResource("products", "/products"));
         rootResources.add(this.buildResource("consumertypes", "/consumertypes"));
         rootResources.add(this.buildResource("consumers", "/consumers"));
-        // rootResources.add(this.buildResource("deleted_consumers", "/deleted_consumers"));
-        // rootResources.add(this.buildResource("distributor_versions", "/distributor_versions"));
-        // rootResources.add(this.buildResource("crl", "/crl"));
+        rootResources.add(this.buildResource("deleted_consumers", "/deleted_consumers"));
+        rootResources.add(this.buildResource("distributor_versions", "/distributor_versions"));
+        rootResources.add(this.buildResource("crl", "/crl"));
         rootResources.add(this.buildResource("{id}", "/serials/{id}"));
         rootResources.add(this.buildResource("status", "/status"));
+        rootResources.add(this.buildResource("packages", "/consumers/{consumer_uuid}/packages"));
 
         return rootResources;
     }
@@ -111,10 +111,11 @@ public class CandlepinResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Map<String, Object> candlepinStatus() {
 
-        List<String> capabilities = List.of("instance_multiplier", "derived_product", "vcpu", "cert_v3",
-            "hypervisors_heartbeat", "remove_by_pool_id", "syspurpose", "storage_band", "cores",
-            "multi_environment", "hypervisors_async", "org_level_content_access", "guest_limit", "ram",
-            "batch_bind");
+        List<String> capabilities = List.of("keycloak_auth", "cloud_registration", "instance_multiplier",
+            "derived_product", "vcpu", "cert_v3", "hypervisors_heartbeat", "remove_by_pool_id", "syspurpose",
+            "storage_band", "device_auth", "cores", "ssl_verify_status", "multi_environment",
+            "hypervisors_async", "org_level_content_access", "guest_limit", "ram", "batch_bind",
+            "combined_reporting");
 
         Map<String, Object> status = new HashMap<>();
         status.put("mode", "NORMAL");
