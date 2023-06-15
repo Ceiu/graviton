@@ -36,22 +36,19 @@ import jakarta.inject.Provider;
 public class CertificateAuthority {
 
     // TODO: change this to a configuration path
-    private static final String CA_CERT_PATH = "/home/crog/devel/graviton/graviton-ca.crt";
-    private static final String CA_PRIVATE_KEY_PATH = "/home/crog/devel/graviton/graviton-ca.key";
-
-    private static final String SIGNATURE_ALGORITHM = "SHA256WithRSA";
+    private CertsSettings settings;
 
     private X509Certificate caCertificate;
     private PrivateKey caPrivateKey;
 
-
-    public CertificateAuthority() {
-        // intentionally left empty
+    @Inject
+    public CertificateAuthority(CertsSettings settings) {
+        this.settings = settings;
     }
 
     public X509Certificate getCACertificate() {
         if (this.caCertificate == null) {
-            try (InputStream istream = new FileInputStream(CA_CERT_PATH)) {
+            try (InputStream istream = Files.newInputStream(settings.ca())) {
                 CertificateFactory certFactory = CertificateFactory.getInstance("X.509");
                 this.caCertificate = (X509Certificate) certFactory.generateCertificate(istream);
             }
@@ -66,7 +63,7 @@ public class CertificateAuthority {
     public PrivateKey getCAPrivateKey() {
         if (this.caPrivateKey == null) {
             try {
-                String key = Files.readString(new File(CA_PRIVATE_KEY_PATH).toPath());
+                String key = Files.readString(settings.privateKey());
 
                 String pem = key.replaceAll("-----(BEGIN|END) PRIVATE KEY-----", "")
                   .replace(System.lineSeparator(), "");
@@ -100,7 +97,7 @@ public class CertificateAuthority {
         }
 
         try {
-            Signature signature = Signature.getInstance(SIGNATURE_ALGORITHM);
+            Signature signature = Signature.getInstance(settings.signatureAlgorithm());
             signature.initSign(this.getCAPrivateKey());
 
             signature.update(bytes, 0, bytes.length);

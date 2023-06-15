@@ -1,10 +1,10 @@
 #!/usr/bin/python
 
 import json
-from os import listdir
+from os import getenv, listdir
 from os.path import isfile, join
 
-src = "/home/crog/devel/subscription_data/subscriptions"
+src = getenv('GRAVITON_DATASOURCE_FS_SUBSCRIPTIONS', 'config/subscription_data/subscriptions')
 
 filelist = [f[:-4] for f in listdir(src) if isfile(join(src, f))]
 

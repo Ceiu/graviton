@@ -1,4 +1,4 @@
-package com.redhat.graviton.api.datasource.impl;
+package com.redhat.graviton.impl.datasource.fs;
 
 import com.redhat.graviton.api.datasource.ProductDataSource;
 import com.redhat.graviton.api.datasource.model.ExtProduct;
@@ -16,11 +16,9 @@ import jakarta.enterprise.context.ApplicationScoped;
 
 import java.io.File;
 import java.util.Arrays;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
@@ -33,20 +31,21 @@ import java.util.Set;
 public class FileSystemProductDataSource implements ProductDataSource {
     private static final Logger LOG = Logger.getLogger(FileSystemProductDataSource.class);
 
-    private static final String BASE_PATH = "/home/crog/devel/subscription_data/product_data";
+    private final File productsDir;
 
     private final ObjectMapper mapper;
 
     @Inject
-    public FileSystemProductDataSource(ObjectMapper mapper) {
+    public FileSystemProductDataSource(FileSystemDataSourceSettings settings, ObjectMapper mapper) {
+        this.productsDir = settings.products().toFile();
         this.mapper = Objects.requireNonNull(mapper);
     }
 
     private Map<String, ExtProduct> getProductsImpl(Set<String> oidFilter) {
 
-        File dir = new File(BASE_PATH);
+        File dir = productsDir;
         if (!dir.canRead() || !dir.isDirectory()) {
-            throw new IllegalStateException("BASE_PATH is not readable or not a directory: " + BASE_PATH);
+            throw new IllegalStateException("Source products directory is not readable or not a directory: " + productsDir);
         }
 
         Map<String, ExtProduct> products = new HashMap<>();
@@ -85,9 +84,9 @@ public class FileSystemProductDataSource implements ProductDataSource {
 
     private Map<String, ExtProductChildren> getProductChildrenImpl(Set<String> oidFilter) {
 
-        File dir = new File(BASE_PATH);
+        File dir = productsDir;
         if (!dir.canRead() || !dir.isDirectory()) {
-            throw new IllegalStateException("BASE_PATH is not readable or not a directory: " + BASE_PATH);
+            throw new IllegalStateException("Source products directory is not readable or not a directory: " + productsDir);
         }
 
         Map<String, ExtProductChildren> trees = new HashMap<>();
