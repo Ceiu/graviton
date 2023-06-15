@@ -26,6 +26,7 @@ import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DefaultValue;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
@@ -296,6 +297,18 @@ public class ConsumerResource {
         return consumer;
     }
 
+    private CPOwnerDTO convertToCPOwner(Organization org) {
+        if (org == null) {
+            return null;
+        }
+
+        return new CPOwnerDTO()
+            .setId(org.getId())
+            .setKey(org.getOid())
+            .setDisplayName(org.getName())
+            .setContentAccessMode("org_environment");
+    }
+
     private CPConsumerDTO convertToConsumerDTO(Consumer consumer) {
         Instant now = Instant.now();
 
@@ -307,14 +320,8 @@ public class ConsumerResource {
             .setManifest(false);
 
         Organization org = consumer.getOrganization();
-        CPOwnerDTO owner = null;
-        if (org != null) {
-            owner = new CPOwnerDTO()
-                .setId(org.getId())
-                .setKey(org.getOid())
-                .setDisplayName(org.getName())
-                .setContentAccessMode("org_environment");
-        }
+
+        CPOwnerDTO owner = this.convertToCPOwner(consumer.getOrganization());
 
         Certificate certificate = consumer.getCertificate();
         CPCertificateDTO identityCert = null;
@@ -521,7 +528,7 @@ public class ConsumerResource {
             .setCreated(certificate.getCreated())
             .setUpdated(certificate.getUpdated())
             .setKey(certificate.getPrivateKey())
-            .setCert(certificate.getCertificate())
+            .setCert(certificate.getCertificate() + certificate.getContentData())
             .setSerial(certSerial);
     }
 
@@ -544,6 +551,26 @@ public class ConsumerResource {
             .setRevoked(false);
 
         return List.of(certSerial);
+    }
+
+    @PUT
+    @Path("/{consumer_oid}/profiles")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public void handleConsumerProfiles(
+        @PathParam("consumer_oid") String consumerOid,
+        List<Map<String, Object>> profiles) {
+
+        LOG.infof("Received profile for consumer %s: %s", consumerOid, profiles);
+    }
+
+    @GET
+    @Path("/{consumer_oid}/owner")
+    @Produces(MediaType.APPLICATION_JSON)
+    public CPOwnerDTO getConsumerOwner(
+        @PathParam("consumer_oid") String consumerOid) {
+
+        Consumer consumer = this.resolveConsumerOid(consumerOid);
+        return this.convertToCPOwner(consumer.getOrganization());
     }
 
 }
