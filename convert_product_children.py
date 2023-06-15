@@ -1,10 +1,10 @@
 #!/usr/bin/python
 
 import json
-from os import listdir
+from os import getenv, listdir
 from os.path import isfile, join
 
-src = "/home/crog/devel/subscription_data/product_data"
+src = getenv('GRAVITON_DATASOURCE_FS_PRODUCTS', 'config/subscription_data/product_data')
 
 filelist = [f for f in listdir(src) if isfile(join(src, f)) and f.endswith("-tree.json")]
 

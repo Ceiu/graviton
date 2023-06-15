@@ -3,7 +3,6 @@ package com.redhat.graviton.api.poc.resources;
 import com.redhat.graviton.api.candlepin.model.CPContent;
 import com.redhat.graviton.api.candlepin.model.CPProduct;
 import com.redhat.graviton.api.candlepin.model.CPProduct.CPProductContent;
-import com.redhat.graviton.api.datasource.model.ExtContent;
 import com.redhat.graviton.api.datasource.model.ExtProduct;
 import com.redhat.graviton.api.datasource.model.ExtProductChildren;
 import com.redhat.graviton.impl.datasource.fs.model.FileSystemExtContent;
@@ -17,6 +16,7 @@ import com.redhat.graviton.sync.OrganizationSync;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.redhat.graviton.impl.datasource.fs.FileSystemDataSourceSettings;
 
 import org.jboss.logging.Logger;
 
@@ -53,9 +53,11 @@ public class PocResource {
     @Inject
     private ProductCurator productCurator;
 
+    @Inject
+    private FileSystemDataSourceSettings settings;
 
-    private List<CPProduct> loadProducts(String target) {
-        File dir = new File(target);
+    private List<CPProduct> loadProducts(File target) {
+        File dir = target;
         if (!dir.canRead() || !dir.isDirectory()) {
             throw new IllegalArgumentException("target is not readable or not a directory: " + target);
         }
@@ -181,7 +183,7 @@ public class PocResource {
     }
 
     private void writeProductData(ExtProduct upstream, ExtProductChildren children) {
-        File dir = new File("/home/crog/devel/subscription_data/product_data");
+        File dir = settings.products().toFile();
 
         LOG.infof("Writing upstream product data for: %s", upstream.getId());
 
@@ -202,7 +204,7 @@ public class PocResource {
     @Path("/convert")
     @Produces(MediaType.APPLICATION_JSON)
     public void convert() {
-        List<CPProduct> products = this.loadProducts("/home/crog/devel/subscription_data/raw");
+        List<CPProduct> products = this.loadProducts(settings.raw().toFile());
 
         // Convert the list to a map
         Map<String, CPProduct> productMap = new HashMap<>();
@@ -239,7 +241,7 @@ public class PocResource {
 
         if (orgOids == null || orgOids.isEmpty()) {
             LOG.info("FETCHING ORGANIZATION LIST");
-            File baseDir = new File("/home/crog/devel/subscription_data/subscriptions");
+            File baseDir = settings.subscriptions().toFile();
 
             orgOids = Stream.of(baseDir.list())
                 .map(filename -> filename.substring(0, filename.length() - 4))

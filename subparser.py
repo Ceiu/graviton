@@ -1,7 +1,11 @@
 #!/usr/bin/python
 
-src = '/home/crog/devel/graviton/tmp_data/raw/subs.txt'
-dest_dir = '/home/crog/devel/graviton/tmp_data/subscriptions/'
+from os import getenv
+from pathlib import Path
+
+src_dir = getenv('GRAVITON_DATASOURCE_FS_RAW', 'config/subscription_data/raw')
+src = Path(src_dir, 'subs.txt')
+dest_dir = getenv('GRAVITON_DATASOURCE_FS_SUBSCRIPTIONS', 'config/subscription_data/subscriptions/')
 
 
 with open(src, 'r') as subs_file:

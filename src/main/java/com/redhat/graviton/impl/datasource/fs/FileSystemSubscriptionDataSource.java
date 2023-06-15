@@ -4,13 +4,11 @@ import com.redhat.graviton.api.datasource.SubscriptionDataSource;
 import com.redhat.graviton.api.datasource.model.ExtSubscription;
 import com.redhat.graviton.impl.datasource.fs.model.FileSystemExtSubscription;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.jboss.logging.Logger;
 
-import jakarta.inject.Inject;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -19,11 +17,8 @@ import java.time.Instant;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -35,7 +30,12 @@ import java.util.stream.Collectors;
 public class FileSystemSubscriptionDataSource implements SubscriptionDataSource {
     private static final Logger LOG = Logger.getLogger(FileSystemSubscriptionDataSource.class);
 
-    private static final String BASE_PATH = "/home/crog/devel/subscription_data/subscriptions";
+    private final File subscriptionsDir;
+
+    @Inject
+    public FileSystemSubscriptionDataSource(FileSystemDataSourceSettings settings) {
+        subscriptionsDir = settings.subscriptions().toFile();
+    }
 
     @Override
     public List<ExtSubscription> getSubscriptions(String orgId) {
@@ -54,9 +54,9 @@ public class FileSystemSubscriptionDataSource implements SubscriptionDataSource 
 
     private List<ExtSubscription> readSubscriptionsImpl(String orgId, Set<String> subIdFilter) {
         try {
-            File dir = new File(BASE_PATH);
+            File dir = subscriptionsDir;
             if (!dir.canRead() || !dir.isDirectory()) {
-                throw new IllegalStateException("BASE_PATH is not readable or not a directory: " + BASE_PATH);
+                throw new IllegalStateException("Source Subscriptions directory is not readable or not a directory: " + dir);
             }
 
             List<ExtSubscription> result = new ArrayList<>();
