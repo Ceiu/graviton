@@ -23,7 +23,7 @@ public class KeyGenerator {
 
     public KeyPair generateKeyPair() {
         try {
-            KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+            KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA", PKIUtility.PROVIDER);
             generator.initialize(KEY_SIZE);
 
             return generator.generateKeyPair();

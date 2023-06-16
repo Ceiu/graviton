@@ -5,6 +5,7 @@ import com.redhat.graviton.db.model.*;
 import com.redhat.graviton.db.curators.ProductCurator;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
@@ -56,7 +57,7 @@ import java.util.zip.DeflaterOutputStream;
 
 @Dependent
 public class SCACertificateGenerator {
-
+    private static final Logger LOG = Logger.getLogger(SCACertificateGenerator.class);
 
     private final CertificateAuthority certAuthority;
     private final KeyGenerator keyGenerator;
@@ -72,14 +73,16 @@ public class SCACertificateGenerator {
     @Inject
     public SCACertificateGenerator(CertificateAuthority certAuthority, KeyGenerator keyGenerator,
         Provider<X509CertificateBuilder> certBuilderProvider, PKIUtility pkiUtil,
-        ProductCurator productCurator, ObjectMapper mapper) {
+        ProductCurator productCurator) {
 
         this.certAuthority = Objects.requireNonNull(certAuthority);
         this.keyGenerator = Objects.requireNonNull(keyGenerator);
         this.certBuilderProvider = Objects.requireNonNull(certBuilderProvider);
         this.pkiUtil = Objects.requireNonNull(pkiUtil);
         this.productCurator = Objects.requireNonNull(productCurator);
-        this.mapper = Objects.requireNonNull(mapper);
+
+        this.mapper = new ObjectMapper();
+        this.mapper.setSerializationInclusion(JsonInclude.Include.NON_NULL);
     }
 
 
@@ -132,7 +135,7 @@ public class SCACertificateGenerator {
         //     .setProducts(List.of(certProduct));
 
         Map<String, Content> contentMap = this.productCurator.getOrgContent(org.getOid(), true);
-        CertProduct certProduct = this.buildCertProduct(contentMap);
+        CertProduct certProduct = this.buildCertProduct(org, contentMap);
         List<CertContent> contentList = certProduct.getContent();
 
         byte[] contentExtension = this.buildContentExtension(contentList);
@@ -166,7 +169,7 @@ public class SCACertificateGenerator {
             this.filterContent(contentMap, consumerArches);
 
             // Convert to cert model JSON
-            CertProduct certProduct = this.buildCertProduct(contentMap);
+            CertProduct certProduct = this.buildCertProduct(org, contentMap);
             CertEntitlement certEntitlement = this.buildCertEntitlement(consumer, certProduct);
             String json = this.mapper.writeValueAsString(certEntitlement);
 
@@ -241,7 +244,7 @@ public class SCACertificateGenerator {
         return false;
     }
 
-    private CertProduct buildCertProduct(Map<String, Content> contentMap) {
+    private CertProduct buildCertProduct(Organization org, Map<String, Content> contentMap) {
 
         // When it comes to filtering content, there are a lot of bits CP does that are
         // implicitly ignored by way of the product pass into the X509ExtensionUtil being a
@@ -249,7 +252,7 @@ public class SCACertificateGenerator {
         // for me here.
         List<CertContent> certContent = contentMap.values()
             .stream()
-            .map(content -> this.convertToCertContent(content))
+            .map(content -> this.convertToCertContent(org, content))
             .collect(Collectors.toList());
 
         CertProduct certProduct = new CertProduct()
@@ -272,7 +275,7 @@ public class SCACertificateGenerator {
         return certProduct;
     }
 
-    private CertContent convertToCertContent(Content content) {
+    private CertContent convertToCertContent(Organization org, Content content) {
         CertContent certContent = new CertContent()
             .setId(content.getOid())
             .setType(content.getType())
@@ -285,7 +288,9 @@ public class SCACertificateGenerator {
             // In CP proper, this actually goes through a bunch of checks, but for SCA certs, the
             // sku product has no attributes and, thus, no content enablement overrides. Since we
             // also don't have environments to deal with, this means we just copy it over 1:1.
-            .setEnabled(content.isEnabled());
+            .setEnabled(content.isEnabled())
+
+            .setPath(this.getContentPath(org, content.getContentUrl()));
 
         // Include required tags as a list if present...
         String requiredTags = content.getRequiredTags();
@@ -295,6 +300,23 @@ public class SCACertificateGenerator {
         }
 
         return certContent;
+    }
+
+    private String getContentPath(Organization org, String contentUrl) {
+        if (contentUrl == null || contentUrl.matches("^\\w+://")) {
+            return contentUrl;
+        }
+
+        StringBuilder path = new StringBuilder("/")
+            .append(org.getOid());
+
+        if (!contentUrl.startsWith("/")) {
+            path.append("/");
+        }
+
+        path.append(contentUrl);
+
+        return path.toString();
     }
 
     private CertEntitlement buildCertEntitlement(Consumer consumer, CertProduct certProduct) {

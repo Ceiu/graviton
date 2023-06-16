@@ -1,8 +1,5 @@
 package com.redhat.graviton.api.candlepin.cert;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-import java.util.List;
 
 
 public class CertService {
@@ -10,20 +7,27 @@ public class CertService {
     private String level;
     private String type;
 
-    /**
-     * @param level
-     */
+    public CertService() {
+        // empty
+    }
+
+    public String getLevel() {
+        return this.level;
+    }
+
     public CertService setLevel(String level) {
         this.level = level;
         return this;
     }
 
-    /**
-     * @param type
-     */
+    public String getType() {
+        return this.type;
+    }
+
     public CertService setType(String type) {
         this.type = type;
         return this;
     }
+
 
 }

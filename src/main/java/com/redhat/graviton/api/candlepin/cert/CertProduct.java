@@ -4,6 +4,8 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
+
+
 public class CertProduct {
 
     private String id;
@@ -16,17 +18,17 @@ public class CertProduct {
     private List<String> architectures;
     private List<CertContent> content;
 
-    public CertProduct setId(String id) {
-        this.id = id;
-        return this;
+
+    public CertProduct() {
+        // empty
     }
 
     public String getId() {
         return this.id;
     }
 
-    public CertProduct setName(String name) {
-        this.name = name;
+    public CertProduct setId(String id) {
+        this.id = id;
         return this;
     }
 
@@ -34,9 +36,22 @@ public class CertProduct {
         return this.name;
     }
 
+    public CertProduct setName(String name) {
+        this.name = name;
+        return this;
+    }
+
+    public String getVersion() {
+        return this.version;
+    }
+
     public CertProduct setVersion(String version) {
         this.version = version;
         return this;
+    }
+
+    public String getBrandType() {
+        return this.brandType;
     }
 
     public CertProduct setBrandType(String brandType) {
@@ -44,22 +59,8 @@ public class CertProduct {
         return this;
     }
 
-    public String getBrandType() {
-        return brandType;
-    }
-
-    public CertProduct setArchitectures(List<String> architectures) {
-        this.architectures = architectures;
-        return this;
-    }
-
-    public CertProduct setContent(List<CertContent> content) {
-        this.content = content;
-        return this;
-    }
-
-    public List<CertContent> getContent() {
-        return this.content;
+    public String getBrandName() {
+        return this.brandName;
     }
 
     public CertProduct setBrandName(String brandName) {
@@ -67,7 +68,24 @@ public class CertProduct {
         return this;
     }
 
-    public String getBrandName() {
-        return brandName;
+    public List<String> getArchitectures() {
+        return this.architectures;
     }
+
+    public CertProduct setArchitectures(List<String> architectures) {
+        this.architectures = architectures;
+        return this;
+    }
+
+    public List<CertContent> getContent() {
+        return this.content;
+    }
+
+    public CertProduct setContent(List<CertContent> content) {
+        this.content = content;
+        return this;
+    }
+
+
+
 }

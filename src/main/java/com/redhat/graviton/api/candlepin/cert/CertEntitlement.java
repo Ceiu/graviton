@@ -1,8 +1,8 @@
 package com.redhat.graviton.api.candlepin.cert;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-
 import java.util.List;
+
+
 
 public class CertEntitlement {
 
@@ -13,43 +13,43 @@ public class CertEntitlement {
     private List<CertProduct> products;
     private CertPool pool;
 
-    /**
-     * @param uuid
-     */
-    public CertEntitlement setConsumer(String uuid) {
-        this.consumer = uuid;
+    public CertEntitlement() {
+        // empty
+    }
+
+    public String getConsumer() {
+        return this.consumer;
+    }
+
+    public CertEntitlement setConsumer(String consumerUuid) {
+        this.consumer = consumerUuid;
         return this;
     }
 
-    /**
-     * @param quantity
-     */
+    public Integer getQuantity() {
+        return this.quantity;
+    }
+
     public CertEntitlement setQuantity(Integer quantity) {
         this.quantity = quantity;
         return this;
     }
 
-    /**
-     * @param subscription
-     */
+    public CertSubscription getSubscription() {
+        return this.subscription;
+    }
+
     public CertEntitlement setSubscription(CertSubscription subscription) {
         this.subscription = subscription;
         return this;
     }
 
-    /**
-     * @param order
-     */
-    public CertEntitlement setOrder(CertOrder order) {
-        this.order = order;
-        return this;
+    public CertOrder getOrder() {
+        return this.order;
     }
 
-    /**
-     * @param products
-     */
-    public CertEntitlement setProducts(List<CertProduct> products) {
-        this.products = products;
+    public CertEntitlement setOrder(CertOrder order) {
+        this.order = order;
         return this;
     }
 
@@ -57,13 +57,18 @@ public class CertEntitlement {
         return this.products;
     }
 
-    /**
-     * @param pool the pool to set
-     */
+    public CertEntitlement setProducts(List<CertProduct> products) {
+        this.products = products;
+        return this;
+    }
+
+    public CertPool getPool() {
+        return this.pool;
+    }
+
     public CertEntitlement setPool(CertPool pool) {
         this.pool = pool;
         return this;
     }
-
 
 }

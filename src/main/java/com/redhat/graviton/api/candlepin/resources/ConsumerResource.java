@@ -535,6 +535,7 @@ public class ConsumerResource {
     @GET
     @Path("/{consumer_oid}/certificates/serials")
     @Produces(MediaType.APPLICATION_JSON)
+    @Transactional // HACK HACK HACK
     public List<CPCertificateSerialDTO> getConsumerCertificateSerials(
         @PathParam("consumer_oid") String consumerOid) {
 
@@ -560,7 +561,7 @@ public class ConsumerResource {
         @PathParam("consumer_oid") String consumerOid,
         List<Map<String, Object>> profiles) {
 
-        LOG.infof("Received profile for consumer %s: %s", consumerOid, profiles);
+        LOG.debugf("Received profile for consumer %s: %s", consumerOid, profiles);
     }
 
     @GET
@@ -571,6 +572,17 @@ public class ConsumerResource {
 
         Consumer consumer = this.resolveConsumerOid(consumerOid);
         return this.convertToCPOwner(consumer.getOrganization());
+    }
+
+    @GET
+    @Path("/{consumer_oid}/content_overrides")
+    @Produces(MediaType.APPLICATION_JSON)
+    public List<CPContentOverrideDTO> getContentOverrides(
+        @PathParam("consumer_oid") String consumerOid) {
+
+        Consumer consumer = this.resolveConsumerOid(consumerOid);
+        return List.of();
+        // return this.convertToCPOwner(consumer.getOrganization());
     }
 
 }
