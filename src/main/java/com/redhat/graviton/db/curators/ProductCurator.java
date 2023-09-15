@@ -54,6 +54,12 @@ public class ProductCurator extends AbstractCurator {
             .getResultList();
     }
 
+    public List<Content> listContent() {
+        return this.getEntityManager()
+            .createQuery("SELECT c FROM Content c", Content.class)
+            .getResultList();
+    }
+
     public Map<String, Product> getProductsByOids(Collection<String> oids) {
         Map<String, Product> result = new HashMap<>();
 

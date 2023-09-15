@@ -2,8 +2,11 @@ package com.redhat.graviton.db.curators;
 
 import com.redhat.graviton.db.model.*;
 
+import org.jboss.logging.Logger;
+
 import jakarta.inject.Provider;
 import jakarta.persistence.EntityManager;
+import jakarta.persistence.EntityTransaction;
 import jakarta.persistence.NoResultException;
 
 import java.util.ArrayList;
@@ -13,6 +16,7 @@ import java.util.Objects;
 
 
 public class AbstractCurator {
+    private static final Logger LOG = Logger.getLogger(AbstractCurator.class);
 
     private final Provider<EntityManager> entityManagerProvider;
 
@@ -54,6 +58,17 @@ public class AbstractCurator {
 
         return entity;
     }
+
+    public void flush() {
+        this.getEntityManager()
+            .flush();
+    }
+
+
+
+
+
+
 
     public <T> List<List<T>> partition(Collection<T> collection, int blockSize) {
         List<T> base = collection instanceof List ? (List<T>) collection : new ArrayList<>(collection);

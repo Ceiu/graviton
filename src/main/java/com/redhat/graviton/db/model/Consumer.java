@@ -4,6 +4,9 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Set;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.CollectionTable;
 import jakarta.persistence.ElementCollection;
@@ -71,12 +74,6 @@ public class Consumer extends TimestampedEntity<Consumer> {
     @Column(name = "username", nullable = true)
     private String username;
 
-    @ElementCollection
-    @CollectionTable(name = "gv_consumer_facts", joinColumns = @JoinColumn(name = "consumer_id"))
-    @MapKeyColumn(name = "name")
-    @Column(name = "value")
-    private Map<String, String> facts;
-
     // installed products (I'm sure someone cares about this yet...)
 
     // hypervisor junk (hypervisor ID, reporter ID -- is that it? why is this a separate table in CP???)
@@ -115,9 +112,30 @@ public class Consumer extends TimestampedEntity<Consumer> {
     // private Set<String> systemPurposeAddOns;
 
 
+    // Facts! (Denormalized facts + generalized facts as key/value map)
+
+    @ElementCollection
+    @CollectionTable(name = "gv_consumer_facts", joinColumns = @JoinColumn(name = "consumer_id"))
+    @MapKeyColumn(name = "name")
+    @Column(name = "value")
+    private Map<String, String> facts;
+
+    // example:
+    // Query query = em.createQuery("select o from Product o WHERE FUNCTION('JSON_EXTRACT', o.des, '$.org') = :org");
+
+    @Column(name = "arch", nullable = false)
+    private String arch;
+
+    @Column(name = "supported_arches", nullable = true)
+    private String supportedArches;
+
+    // @Column(name = "facts", nullable = true)
+    // @JdbcTypeCode(SqlTypes.JSON)
+    // private Map<String, String> facts;
+
 
     public Consumer() {
-
+        // Intentionally left empty
     }
 
     public String getId() {
@@ -174,15 +192,6 @@ public class Consumer extends TimestampedEntity<Consumer> {
         return this;
     }
 
-    public Map<String, String> getFacts() {
-        return this.facts;
-    }
-
-    public Consumer setFacts(Map<String, String> facts) {
-        this.facts = facts;
-        return this;
-    }
-
     public Instant getLastCheckIn() {
         return this.lastCheckIn;
     }
@@ -216,6 +225,35 @@ public class Consumer extends TimestampedEntity<Consumer> {
 
     public Consumer setCertificate(Certificate certificate) {
         this.certificate = certificate;
+        return this;
+    }
+
+    // Facts
+
+    public String getArch() {
+        return this.arch;
+    }
+
+    public Consumer setArch(String arch) {
+        this.arch = arch;
+        return this;
+    }
+
+    public String getSupportedArches() {
+        return this.supportedArches;
+    }
+
+    public Consumer setSupportedArches(String supportedArches) {
+        this.supportedArches = supportedArches;
+        return this;
+    }
+
+    public Map<String, String> getFacts() {
+        return this.facts != null ? this.facts : Map.of();
+    }
+
+    public Consumer setFacts(Map<String, String> facts) {
+        this.facts = facts;
         return this;
     }
 

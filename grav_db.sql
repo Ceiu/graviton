@@ -248,6 +248,35 @@ CREATE TABLE IF NOT EXISTS gv_consumer_facts (
 CREATE INDEX IF NOT EXISTS gv_consumer_facts_idx1 ON gv_consumer_facts ("consumer_id");
 CREATE INDEX IF NOT EXISTS gv_consumer_facts_idx2 ON gv_consumer_facts ("name");
 
+-- consumers w/facts
+CREATE TABLE IF NOT EXISTS gv_consumers_json_facts (
+  "id" VARCHAR(64) NOT NULL,
+  "created" TIMESTAMP NOT NULL DEFAULT now(),
+  "updated" TIMESTAMP NOT NULL DEFAULT now(),
+  "oid" VARCHAR(64) NOT NULL UNIQUE,
+  "type" VARCHAR(32) NOT NULL,
+  "name" VARCHAR(250) NOT NULL,
+  "org_id" VARCHAR(64) NOT NULL,
+  "username" VARCHAR(128),
+  "last_check_in" TIMESTAMP NOT NULL DEFAULT now(),
+  "last_cloud_profile_update" TIMESTAMP NOT NULL DEFAULT now(),
+  "certificate_id" VARCHAR(64),
+  "key_pair_id" VARCHAR(64),
+
+  -- denormalized facts
+  "arch" VARCHAR(32) NOT NULL,
+  "supported_arches" VARCHAR(128),
+  "facts" JSONB,
+
+  PRIMARY KEY ("id"),
+  FOREIGN KEY ("org_id") REFERENCES gv_organizations ("id") ON DELETE CASCADE,
+  FOREIGN KEY ("certificate_id") REFERENCES gv_certificates ("id"),
+  FOREIGN KEY ("key_pair_id") REFERENCES gv_key_pairs ("id")
+);
+CREATE INDEX IF NOT EXISTS gv_consumers_idx1 ON gv_consumers ("oid");
+CREATE INDEX IF NOT EXISTS gv_consumers_idx2 ON gv_consumers ("org_id");
+CREATE INDEX IF NOT EXISTS gv_consumer_facts_idx ON gv_consumers USING GIN ("facts");
+
 
 -- sca cert junk
 CREATE TABLE IF NOT EXISTS gv_sca_content_certs (

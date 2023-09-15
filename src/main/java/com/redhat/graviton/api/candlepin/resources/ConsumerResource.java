@@ -290,9 +290,14 @@ public class ConsumerResource {
             .setType(type != null ? type : "SYSTEM")
             .setOrganization(org)
             .setUsername(username)
-            .setFacts(facts)
             .setLastCheckIn(now)
-            .setLastCloudProfileUpdate(now);
+            .setLastCloudProfileUpdate(now)
+            .setFacts(facts);
+
+        // v2 facts junk
+        // String arch = facts.get("uname.machine");
+
+        // consumer.setArch(arch);
 
         return consumer;
     }
